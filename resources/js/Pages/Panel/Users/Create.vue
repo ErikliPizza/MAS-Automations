@@ -1,13 +1,13 @@
 <script setup>
 import MainFrame from "@/Components/Frames/MainFrame.vue";
 import InputError from '@/Components/InputError.vue';
-import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
-import TextInput from '@/Components/TextInput.vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { useForm } from '@inertiajs/vue3';
 import ListDescription from "@/Components/ListDescription.vue";
-import Combobox from "@/Components/Combobox.vue";
 import { useSmoothScroll } from "@/Composables/useSmoothScroll.vue";
+import {computed} from "vue";
+import FormSection from "@/Pages/Panel/Users/Partial/FormSection.vue";
+
 const { scrollTarget } = useSmoothScroll();
 
 const props = defineProps(
@@ -28,9 +28,16 @@ const form = useForm({
     email: '',
     phone: '',
     password: '',
-    password_confirmation: '',
     role: 'additional', // Added role
     modules: [], // Added modules as an array
+});
+
+const isFormReady = computed(() => {
+    if (form.role === 'admin') {
+        return form.name.trim() !== '' && form.email.trim() !== '' && form.password.trim() !== '' && (form.role.trim() === 'additional' || form.role.trim() === 'admin');
+    } else {
+        return form.name.trim() !== '' && form.email.trim() !== '' && form.password.trim() !== '' && (form.role.trim() === 'additional' || form.role.trim() === 'admin') && form.modules.length > 0;
+    }
 });
 const submit = () => {
     form.post(route('create-user'), {
@@ -41,10 +48,9 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Register" />
     <MainFrame>
         <form @submit.prevent="submit" v-if="existingUsers < limit">
-            <div class="flex justify-between items-center">
+            <div class="flex justify-between items-center" ref="scrollTarget">
                 <div>
                     {{ existingUsers }} / {{ limit }}
                 </div>
@@ -55,93 +61,10 @@ const submit = () => {
                 </div>
             </div>
 
-            <div class="mt-4">
-                <InputLabel for="name" value="Name *" />
+            <form-section :modules="modules" v-model="form" :password-required="true"/>
 
-                <TextInput
-                    id="name"
-                    type="text"
-                    class="mt-1 block w-full"
-                    v-model="form.name"
-                    placeholder="John Doe"
-                    required
-                    autocomplete="name"
-                />
-
-                <InputError class="mt-2" :message="form.errors.name" />
-            </div>
-
-            <div class="mt-4" ref="scrollTarget">
-                <InputLabel for="email" value="Email *" />
-
-                <TextInput
-                    id="email"
-                    type="email"
-                    class="mt-1 block w-full"
-                    v-model="form.email"
-                    placeholder="example@mail.com"
-                    required
-                    autocomplete="email"
-                />
-
-                <InputError class="mt-2" :message="form.errors.email" />
-            </div>
-
-            <div class="mt-4">
-                <InputLabel for="phone" value="Phone" />
-
-                <TextInput
-                    id="phone"
-                    type="text"
-                    class="mt-1 block w-full"
-                    v-model="form.phone"
-                    autocomplete="phone"
-                />
-
-                <InputError class="mt-2" :message="form.errors.phone" />
-            </div>
-
-            <div class="mt-4 flex space-x-1">
-                <div>
-                    <InputLabel for="password" value="Password *" />
-
-                    <TextInput
-                        id="password"
-                        type="password"
-                        class="mt-1 block w-full"
-                        v-model="form.password"
-                        required
-                        autocomplete="new-password"
-                    />
-
-                    <InputError class="mt-2" :message="form.errors.password" />
-                </div>
-
-                <div>
-                    <InputLabel for="password_confirmation" value="Password *" />
-
-                    <TextInput
-                        id="password_confirmation"
-                        type="password"
-                        class="mt-1 block w-full"
-                        v-model="form.password_confirmation"
-                        required
-                        autocomplete="new-password"
-                    />
-                </div>
-                <div class="flex">
-                    <InputError class="mt-2" :message="form.errors.password_confirmation" />
-                </div>
-            </div>
-
-            <div class="mt-4" v-show="form.role === 'additional'">
-                <InputLabel value="Modules *" />
-
-                <Combobox v-model="form.modules" :item="modules" :limit="modules.length" placeholder="select modules"/>
-                <InputError class="mt-2" :message="form.errors.modules" />
-            </div>
             <div class="flex items-center justify-end mt-4">
-                <PrimaryButton :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
+                <PrimaryButton :class="{ 'bg-sky-100': form.processing || !isFormReady}" :disabled="form.processing || !isFormReady">
                     Register
                 </PrimaryButton>
             </div>

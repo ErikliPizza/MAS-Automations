@@ -29,4 +29,10 @@ class Appointment extends Model
         'price'
     ];
     use HasFactory, BelongsToTenant;
+
+    // Define the relationship with Service
+    public function service()
+    {
+        return $this->belongsTo(Service::class, 'service_id');
+    }
 }

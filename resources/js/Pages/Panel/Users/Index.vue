@@ -2,7 +2,11 @@
 import WideFrame from "@/Components/Frames/WideFrame.vue";
 import { PhoneIcon, EnvelopeIcon } from "@heroicons/vue/24/solid/index.js";
 import { useSmoothScroll } from "@/Composables/useSmoothScroll.vue";
+import { useCanIClick } from "@/Composables/useCanIClick.vue";
+
 const { scrollTarget } = useSmoothScroll();
+const canIClick = useCanIClick();
+
 defineProps({
     users: {
         required: true,
@@ -12,10 +16,10 @@ defineProps({
 </script>
 
 <template>
-    <WideFrame ref="scrollTarget">
+    <WideFrame>
         <ul role="list" class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <li v-for="user in users" :key="user.email" class="col-span-1 divide-y divide-gray-200 rounded-lg bg-white shadow">
-                <Link :href="'/users/'+user.id" class="flex w-full items-center justify-between space-x-6 p-6 cursor-pointer">
+                <Link :href="canIClick(user.role) ? '/users/'+user.id : ''" class="flex w-full items-center justify-between space-x-6 p-6 cursor-pointer">
                     <div class="flex-1 truncate">
                         <div class="flex items-center space-x-3">
                             <h3 class="truncate text-sm font-medium text-gray-900">{{ user.name }}</h3>

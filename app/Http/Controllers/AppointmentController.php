@@ -4,178 +4,203 @@ namespace App\Http\Controllers;
 
 use App\Models\Appointment;
 use App\Models\Service;
-use App\Models\User;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
-use Inertia\Response;
 
 class AppointmentController extends Controller
 {
-    public function index(Request $request)
+    private string $timeZone = 'GMT+3';
+
+    /**
+     * @throws AuthorizationException + via getServiceFromRequest function
+     * you need to have access to appointment module + via middleware
+     * you need to have access to current service + via Service Policy
+     */
+    public function index(Request $request): \Inertia\Response
     {
-        $this->authorize('ownModule', Appointment::class);
-        $selectedServiceId = $request->input('service'); // Fetch the 'service' parameter
+        $activeServices = Service::where('status', 'active')->get();
 
-        if ($selectedServiceId) {
-            // If 'selectedService' is present, find the service by ID
-            $service = Service::findOrFail($selectedServiceId);
-        } else {
-            $service = Service::first();
+        if ($activeServices->isEmpty()) {
+            return Inertia::render('Appointment/Basic/Index', [
+                'services' => collect(),
+                'service' => null,
+                'appointments' => null,
+            ]);
         }
 
-        if ($service) {
-            $this->authorize('create', [Appointment::class, $service]);
+        $service = $this->getServiceFromRequest($request);
+        $now = Carbon::now($this->timeZone);
 
-            $now = Carbon::now('GMT+3');
+        // Refactor appointments retrieval to reuse service object
+        // Note: Consider consolidating or optimizing this part based on specific use case
+        // Assuming $now is already defined
+        $appointmentsQuery = $service->appointments()
+            ->select('start_time', 'end_time', 'name', 'email', 'phone', 'status', 'notes');
 
-            // Ongoing appointment
-            $ongoingAppointment = $service->appointments()
-                ->select('start_time', 'end_time', 'name', 'email', 'phone')
-                ->where('status', 'booked') // Add condition for status
-                ->where('start_time', '<=', $now)
-                ->where('end_time', '>', $now)
-                ->first();
-
-            // Previous appointment
-            $previousAppointment = $service->appointments()
-                ->select('start_time', 'end_time', 'name', 'email', 'phone')
-                ->whereDate('start_time', '=', $now->toDateString()) // Limit records to today
-                ->where('end_time', '<', $now)
-                ->latest('end_time')
-                ->first();
-
-            // Next appointment
-            $nextAppointment = $service->appointments()
-                ->select('start_time', 'end_time', 'name', 'email', 'phone')
-                ->where('status', 'booked') // Add condition for status
-                ->whereDate('start_time', '=', $now->toDateString()) // Limit records to today
-                ->where('start_time', '>', $now)
-                ->orderBy('start_time', 'asc')
-                ->first();
-
-            if ($nextAppointment) {
-                $futureAppointments = $service->appointments()
-                    ->select('start_time', 'end_time', 'name', 'email', 'phone')
-                    ->where('start_time', '>', $nextAppointment->start_time)
-                    ->get();
-            } else {
-                // If there is no next appointment, this would mean all future appointments after current time
-                $futureAppointments = $service->appointments()
-                    ->select('start_time', 'end_time', 'name', 'email', 'phone')
-                    ->where('start_time', '>', $now)
-                    ->get();
-            }
+        // Ongoing appointment
+        $ongoingAppointment = (clone $appointmentsQuery)
+            ->where('status', 'booked')
+            ->where('start_time', '<=', $now)
+            ->where('end_time', '>', $now)
+            ->first();
+        if ($ongoingAppointment) {
+            $ongoingAppointment->type = 'ongoing';
         }
+
+        // Previous appointment
+        $previousAppointment = (clone $appointmentsQuery)
+            ->whereDate('start_time', '=', $now->toDateString())
+            ->whereIn('status', ['completed', 'missed', 'cancelled']) // Include both completed and missed statuses
+            ->where('start_time', '<', $now)
+            ->latest('end_time')
+            ->get()
+            ->each(function ($appointment) {
+                $appointment->type = 'previous';
+            });
+
+        // Next appointment
+        $nextAppointment = (clone $appointmentsQuery)
+            ->where('status', 'booked')
+            ->whereDate('start_time', '=', $now->toDateString())
+            ->where('start_time', '>', $now)
+            ->orderBy('start_time', 'asc')
+            ->first();
+        if ($nextAppointment) {
+            $nextAppointment->type = 'next';
+        }
+
+        // Future appointments
+        $futureAppointments = (clone $appointmentsQuery)
+            ->where('status', 'booked')
+            ->where('start_time', '>', $nextAppointment ? $nextAppointment->start_time : $now)
+            ->orderBy('start_time', 'asc')
+            ->get()
+            ->each(function ($appointment) {
+                $appointment->type = 'future';
+            });
+
+        // Combine all appointments into a single collection, filtering out null values for ongoing, previous, and next
+        $allAppointments = collect([$ongoingAppointment, $nextAppointment])
+            ->filter() // Filter out null values
+            ->merge($futureAppointments)
+            ->merge($previousAppointment); // Merge with future appointments
+
+        // Sort all appointments by start time and reassign
+        $allAppointments = $allAppointments->sortBy('start_time')->values();
 
         return Inertia::render('Appointment/Basic/Index', [
-            'services' => Service::all(),
-            'service' => $service ?? null,
-            'appointments' => $futureAppointments ?? null,
-            'ongoing' => $ongoingAppointment ?? null,
-            'previous' => $previousAppointment ?? null,
-            'next' => $nextAppointment ?? null
+            'services' => $activeServices, // Assuming $activeServices is defined
+            'service' => $service,
+            'appointments' => $allAppointments,
         ]);
     }
 
-    public function create(Request $request)
-    {
-        $this->authorize('ownModule', Appointment::class);
 
-        $selectedServiceId = $request->input('selectedService');
+    /**
+     * @throws AuthorizationException + via getServiceFromRequest function
+     * * you need to have access to appointment module + via middleware
+     * * you need to have access to current service + via Service Policy
+     */
+    public function create(Request $request): \Inertia\Response
+    {
+        // Check if there are any services available at the very beginning
+        if (Service::where('status', 'active')->exists()) {
+            $service = $this->getServiceFromRequest($request);
+            $day = $request->input('day'); // Fetch the 'day' parameter
+
+            // Check if 'day' is provided, else use today's date with specified timezone
+            $date = $day ? Carbon::createFromFormat('Y-m-d', $day) : Carbon::now($this->timeZone);
+
+            // Fetch appointments only if a service is selected
+            $appointments = $this->getAppointments($service, $date);
+        } else {
+            // No services are available, set $service and $appointments to null
+            $service = null;
+            $appointments = collect(); // Use an empty collection for $appointments to keep return type consistent
+        }
+
+        return Inertia::render('Appointment/Basic/Create', [
+            'services' => Service::where('status', 'active')->get(),
+            'service' => $service,
+            'appointments' => $appointments
+        ]);
+    }
+
+    /**
+     * @throws AuthorizationException + via Service Policy
+     * * you need to have access to appointment module + via middleware
+     * * you need to have access to current service + via Service Policy
+     * * you need to have access to current appointment + via Appointment Policy
+     */
+    public function edit(Appointment $appointment, Request $request): \Inertia\Response
+    {
+        $this->authorize('view', $appointment);
+        $selectedServiceId = $request->input('service');
         $day = $request->input('day'); // Fetch the 'day' parameter
 
         if ($selectedServiceId) {
-            // If 'selectedService' is present, find the service by ID
-            $service = Service::findOrFail($selectedServiceId);
+
+            $service = Service::where('status', 'active')
+                ->where('id', $selectedServiceId)
+                ->firstOrFail();
         } else {
-            // If 'selectedService' is not present, get the first service
-            $service = Service::first();
+            // Assuming $appointment is defined and has a relation named 'service'
+            $service = $appointment->service;
+
+            // Optionally, you can still check if the service is active, if necessary
+            if ($service->status !== 'active') {
+                abort(404, 'Active service not found.');
+            }
         }
 
-        if ($service) {
-            $this->authorize('create', [Appointment::class, $service]);
-
-            // Check if 'day' is provided, else use today's date
-            $date = $day ? Carbon::createFromFormat('Y-m-d', $day) : Carbon::now();
-
-            // Fetch only start_time and end_time for appointments of the given date
-            $appointments = $service->appointments()
-                ->select('start_time', 'end_time', 'name', 'email', 'phone')
-                ->where('status', 'booked') // Add condition for status
-                ->whereDate('start_time', '=', $date->toDateString())
-                ->orderBy('start_time', 'asc')
-                ->get();
-        }
+        $this->authorize('view', $service);
 
 
-        return Inertia::render('Appointment/Basic/Create', [
-            'services' => Service::all(),
-            'service' => $service ?? null,
-            'appointments' => $appointments ?? null
+        // Simplify date handling using ternary operator
+        $date = $day ? Carbon::createFromFormat('Y-m-d', $day) : Carbon::parse($appointment->start_time);
+
+        // Fetch appointments excluding the current one and for the given date
+        $appointments = $this->getAppointments($service, $date, $appointment->id);
+
+        return Inertia::render('Appointment/Basic/Edit', [
+            'services' => Service::where('status', 'active')->get(),
+            'service' => $service,
+            'appointments' => $appointments,
+            'appointment' => $appointment
         ]);
     }
 
-    public function store(Request $request)
+    /**
+     * @throws AuthorizationException|ValidationException
+     * * you need to have access to appointment module + via middleware
+     * * you need to have access to requested service + via validateAppointmentData
+     */
+    public function store(Request $request): RedirectResponse
     {
-        $validatedData = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'nullable|email|max:255',
-            'phone' => 'nullable|string|max:255',
-            'service_id' => 'required|exists:services,id',
-            'start_time' => 'required|date_format:H:i:s',
-            'end_time' => 'required|date_format:H:i:s|after:start_time',
-            'notes' => 'nullable|string|max:255',
-            'price' => 'nullable|numeric',
-            'day' => 'required|date', // Ensure this is a date.
-        ]);
-        $service = Service::findOrFail($validatedData['service_id']);
-        $this->authorize('create', [Appointment::class, $service]);
+        $validatedData = $this->validateAppointmentData($request);
 
-        do {
-            $slug = Str::random(16); // Or any length you prefer
-        } while (Appointment::where('slug', $slug)->exists());
-
-        // Extract the date part from the day
-        $date = Carbon::parse($validatedData['day'])->toDateString(); // This will give you "2024-02-15"
-
-        // Combine the date with start_time and end_time
-        $startTimestamp = Carbon::createFromFormat('Y-m-d H:i:s', $date . ' ' . $validatedData['start_time']);
-        $endTimestamp = Carbon::createFromFormat('Y-m-d H:i:s', $date . ' ' . $validatedData['end_time']);
-
-        // Check for exact overlapping appointments, excluding edges
-        $overlappingAppointments = Appointment::where(function ($query) use ($startTimestamp, $endTimestamp) {
-            // Appointments that start or end within the new appointment's duration
-            $query->where(function ($q) use ($startTimestamp, $endTimestamp) {
-                $q->where('start_time', '>', $startTimestamp)
-                    ->where('start_time', '<', $endTimestamp);
-            })->orWhere(function ($q) use ($startTimestamp, $endTimestamp) {
-                $q->where('end_time', '>', $startTimestamp)
-                    ->where('end_time', '<', $endTimestamp);
-            });
-        })
-            ->where('service_id', $validatedData['service_id']) // Add condition for service_id
-            ->where('status', 'booked') // Add condition for status
-            ->exists();
-
-        $exclusiveStartOrEndAppointments = Appointment::where(function ($query) use ($startTimestamp, $endTimestamp) {
-            $query->where('end_time', '=', $endTimestamp)
-                ->orWhere('start_time', '=', $startTimestamp);
-        })
-            ->where('service_id', $validatedData['service_id']) // Add condition for service_id
-            ->where('status', 'booked') // Add condition for status
-            ->exists();
-
-
-
-        if ($overlappingAppointments || $exclusiveStartOrEndAppointments) {
+        if ($this->checkOverlappingAppointments($validatedData)) {
             return redirect()->back()->with('error', 'The selected time slot is not available.');
         }
 
-        Appointment::Create([
+        // Extract start and end timestamps from the validated data
+        [$startTimestamp, $endTimestamp] = $this->createTimestamps($validatedData);
+
+        // Generate a unique slug for the appointment
+        do {
+            $slug = Str::random(8);
+        } while (Appointment::where('slug', $slug)->exists());
+
+        // Create the appointment
+        Appointment::create([
             'service_id' => $validatedData['service_id'],
-            'user_id' => auth()->id(),
+            'user_id' => auth()->id(), // Assuming you're tracking which user created the appointment
             'slug' => $slug,
             'name' => $validatedData['name'],
             'email' => $validatedData['email'],
@@ -184,8 +209,173 @@ class AppointmentController extends Controller
             'end_time' => $endTimestamp,
             'notes' => $validatedData['notes'],
             'price' => $validatedData['price'],
-            'status' => 'booked', // Assuming new appointments default to 'booked'
+            'status' => $validatedData['status'], // Assuming 'booked' status is set by default in the form
         ]);
-        return redirect()->back()->with('success', 'Appointment has been created');
+
+        return redirect()->back()->with('success', 'Appointment has been created successfully.');
     }
+
+    /**
+     * @throws AuthorizationException|ValidationException
+     * * you need to have access to appointment module + via middleware
+     * * you need to have access to requested service + via validateAppointmentData
+     * * you need to have access to current appointment + via Appointment Policy
+     */
+    public function update(Request $request, Appointment $appointment): RedirectResponse
+    {
+        $this->authorize('update', $appointment);
+        $validatedData = $this->validateAppointmentData($request, false);
+
+        if ($this->checkOverlappingAppointments($validatedData, $appointment->id)) {
+            return redirect()->back()->with('error', 'The selected time slot is not available.');
+        }
+
+        // Extract start and end timestamps from the validated data
+        [$startTimestamp, $endTimestamp] = $this->createTimestamps($validatedData);
+
+        // Update the appointment
+        $appointment->update([
+            'service_id' => $validatedData['service_id'],
+            'name' => $validatedData['name'],
+            'email' => $validatedData['email'],
+            'phone' => $validatedData['phone'],
+            'start_time' => $startTimestamp,
+            'end_time' => $endTimestamp,
+            'notes' => $validatedData['notes'],
+            'price' => $validatedData['price'],
+            'status' => $validatedData['status'],
+        ]);
+
+        return redirect()->route('appointments.edit', ['appointment' => $appointment->id])->with('success', 'Appointment has been updated successfully.');
+    }
+
+    /**
+     * Validate appointment request data.
+     * @throws AuthorizationException
+     * @throws ValidationException
+     */
+    private function validateAppointmentData($request, $isNew = true)
+    {
+        $rules = [
+            'name' => 'required|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'phone' => 'nullable|string|max:255',
+            'service_id' => 'required|exists:services,id',
+            'start_time' => 'required|date_format:H:i:s',
+            'end_time' => 'required|date_format:H:i:s|after:start_time',
+            'notes' => 'nullable|string|max:255',
+            'price' => 'nullable|numeric',
+            'day' => 'required|date',
+            'status' => 'required|string|in:booked,completed,cancelled,missed'
+        ];
+
+        if ($isNew) {
+            $request->merge(['status' => 'booked']);
+        }
+        // Perform validation
+        $validatedData = $request->validate($rules);
+
+        // Merge the date and time to create full timestamps with specific time zone
+        $date = Carbon::parse($validatedData['day'], $this->timeZone)->toDateString();
+        $startTimestamp = Carbon::createFromFormat('Y-m-d H:i:s', $date . ' ' . $validatedData['start_time'], $this->timeZone);
+        $endTimestamp = Carbon::createFromFormat('Y-m-d H:i:s', $date . ' ' . $validatedData['end_time'], $this->timeZone);
+
+        if ($validatedData['status'] === 'booked') {
+            $now = Carbon::now($this->timeZone); // Get the current time with the same time zone
+
+            // Check if either the start or end time is not in the future
+            if (!$startTimestamp->isFuture() || !$endTimestamp->isFuture()) {
+                // Initialize Validator for custom error messages
+                $validator = Validator::make([], []); // Empty data and rules for manual error addition
+
+                // Add custom error messages only if the times are not in the future
+                if (!$startTimestamp->isFuture()) {
+                    $validator->errors()->add('start_time', 'The start time must be in the future.');
+                }
+                if (!$endTimestamp->isFuture()) {
+                    $validator->errors()->add('end_time', 'The end time must be in the future.');
+                }
+
+                throw new ValidationException($validator);
+            }
+        }
+
+        // Retrieve the service using the validated service_id
+        $service = Service::where('id', $validatedData['service_id'])
+            ->where('status', 'active')
+            ->firstOrFail();
+
+        // Authorization check
+        $this->authorize('view', $service);
+
+        // Return the validated data for further processing
+        return $validatedData;
+    }
+
+
+    /**
+     * Check for overlapping appointments.
+     */
+    private function checkOverlappingAppointments($validatedData, $appointmentId = null)
+    {
+        [$startTimestamp, $endTimestamp] = $this->createTimestamps($validatedData);
+
+        $query = Appointment::where(function ($query) use ($startTimestamp, $endTimestamp) {
+            $query->where(function ($q) use ($startTimestamp, $endTimestamp) {
+                $q->where('start_time', '<', $endTimestamp)
+                    ->where('end_time', '>', $startTimestamp);
+            });
+        })
+            ->where('service_id', $validatedData['service_id'])
+            ->where('status', 'booked');
+
+        if ($appointmentId) {
+            $query->where('id', '!=', $appointmentId);
+        }
+
+        return $query->exists();
+    }
+
+    /**
+     * Create start and end timestamps from request data.
+     */
+    private function createTimestamps($validatedData): array
+    {
+        $date = Carbon::parse($validatedData['day'], $this->timeZone)->toDateString();
+        $startTimestamp = Carbon::createFromFormat('Y-m-d H:i:s', $date . ' ' . $validatedData['start_time'], $this->timeZone);
+        $endTimestamp = Carbon::createFromFormat('Y-m-d H:i:s', $date . ' ' . $validatedData['end_time'], $this->timeZone);
+
+        return [$startTimestamp, $endTimestamp];
+    }
+
+    /**
+     * @throws AuthorizationException
+     */
+    private function getServiceFromRequest(Request $request)
+    {
+        $selectedServiceId = $request->input('service');
+        $service = Service::where('status', 'active')
+            ->when($selectedServiceId, function ($query, $selectedServiceId) {
+                return $query->where('id', $selectedServiceId);
+            }, function ($query) {
+                return $query->orderBy('id')->first();
+            })
+            ->firstOrFail();
+        $this->authorize('view', $service);
+        return $service;
+    }
+    private function getAppointments($service, $date, $excludeId = null) {
+        $query = $service->appointments()
+            ->select('start_time', 'end_time', 'name', 'email', 'phone')
+            ->where('status', 'booked')
+            ->whereDate('start_time', '=', $date->toDateString());
+
+        // Conditionally add the where clause if an ID is to be excluded
+        if ($excludeId !== null) {
+            $query->where('id', '!=', $excludeId);
+        }
+
+        return $query->orderBy('start_time', 'asc')->get();
+    }
+
 }

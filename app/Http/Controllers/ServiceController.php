@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Service;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -10,18 +11,17 @@ use Illuminate\Support\Str;
 
 class ServiceController extends Controller
 {
-    protected $maxServicesAllowed = 10;
+    protected int $maxServicesAllowed = 10;
 
     public function index()
     {
-        $this->authorize('viewAny', Service::class);
-
         return Inertia::render('Appointment/Service/Index', [
             'services' => Service::all()
         ]);
     }
 
-    public function show($slug)
+
+    public function show($slug): \Inertia\Response
     {
         $service = Service::where('slug', $slug)->firstOrFail();
 
@@ -30,6 +30,9 @@ class ServiceController extends Controller
         ]);
     }
 
+    /**
+     * @throws AuthorizationException
+     */
     public function edit(Service $service)
     {
         $this->authorize('view', $service);
@@ -41,20 +44,15 @@ class ServiceController extends Controller
 
     public function create()
     {
-        $this->authorize('create', Service::class);
-
         return Inertia::render('Appointment/Service/Create');
     }
 
     /**
      * Handle an incoming service store request.
      *
-     * @throws \Illuminate\Validation\ValidationException
      */
     public function store(Request $request): RedirectResponse
     {
-        $this->authorize('create', Service::class);
-
         $request->merge(['status' => 'active']);
 
         if (auth()->user()->tenant->services()->count() >= $this->maxServicesAllowed) {
@@ -64,7 +62,7 @@ class ServiceController extends Controller
 
         $validatedData = $request->validate($this->validationRules());
         do {
-            $slug = Str::random(16); // Or any length you prefer
+            $slug = Str::random(8); // Or any length you prefer
         } while (Service::where('slug', $slug)->exists());
 
         Service::Create([
@@ -87,7 +85,7 @@ class ServiceController extends Controller
     /**
      * Handle an incoming service update request.
      *
-     * @throws \Illuminate\Validation\ValidationException
+     * @throws AuthorizationException
      */
     public function update(Request $request, Service  $service): RedirectResponse
     {
@@ -96,7 +94,6 @@ class ServiceController extends Controller
 
         // Validation
         $validatedData = $request->validate($this->validationRules());
-
 
         // Updating the service
         $service->update([
@@ -114,7 +111,10 @@ class ServiceController extends Controller
         return redirect()->back()->with('success', 'Service has been updated');
     }
 
-    public function destroy(Service  $service)
+    /**
+     * @throws AuthorizationException
+     */
+    public function destroy(Service $service): RedirectResponse
     {
         // Ensure the user belongs to the same tenant as the current user and has the
         // privilege to make this operation based on this specific user's role
@@ -124,7 +124,7 @@ class ServiceController extends Controller
     }
 
     // Private method for validation rules
-    private function validationRules()
+    private function validationRules(): array
     {
         return [
             'name' => 'required|string|max:64',

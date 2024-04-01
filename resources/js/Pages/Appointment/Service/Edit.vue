@@ -9,7 +9,7 @@ import {useForm} from "@inertiajs/vue3";
 import Toggle from "@/Components/Toggle.vue";
 import { useSmoothScroll } from "@/Composables/useSmoothScroll.vue";
 import DangerButton from "@/Components/DangerButton.vue";
-import SimpleAlert from "@/Components/SimpleAlert.vue";
+import SimpleAlert from "@/Components/Modals/SimpleAlert.vue";
 import {ClockIcon} from "@heroicons/vue/24/outline/index.js";
 import VueDatePicker from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css'

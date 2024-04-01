@@ -1,6 +1,6 @@
 <script setup>
 import {Menu, MenuButton, MenuItem, MenuItems} from "@headlessui/vue";
-import {Link, usePage} from "@inertiajs/vue3";
+import {Link} from "@inertiajs/vue3";
 import {EllipsisVerticalIcon} from "@heroicons/vue/20/solid/index.js";
 import { useCanIClick } from "@/Composables/useCanIClick.vue";
 

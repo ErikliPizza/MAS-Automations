@@ -58,7 +58,7 @@ class RegisteredUserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:'.User::class,
             'phone' => 'nullable|regex:/^\d{10,15}$/',
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'password' => ['required', Rules\Password::defaults()],
             'role' => 'required|string|in:admin,additional', // Adjust as necessary
             'modules' => ['required', 'array', 'min:1', new ModulesBelongToTenant()],
             'modules.*' => 'exists:modules,id'

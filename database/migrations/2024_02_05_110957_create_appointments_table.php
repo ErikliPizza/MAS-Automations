@@ -22,7 +22,7 @@ return new class extends Migration
             $table->string('phone')->nullable(); // +
             $table->timestamp('start_time'); // +
             $table->timestamp('end_time'); // +
-            $table->enum('status', ['booked', 'completed', 'canceled', 'missed']); // e.g., booked, completed, cancelled
+            $table->enum('status', ['booked', 'completed', 'cancelled', 'missed']); // e.g., booked, completed, cancelled
             $table->text('notes')->nullable(); // +
             $table->decimal('price', 8, 2)->nullable(); // 4
             $table->timestamps(); // +

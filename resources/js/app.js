@@ -30,6 +30,7 @@ createInertiaApp({
                 maxToasts: 3,
                 // You can set your default options here
             });
+
         app.component('Head', Head); // Register the Head component globally
         app.component('Link', Link); // Register the Link component globally
 

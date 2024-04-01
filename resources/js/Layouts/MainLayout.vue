@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import {ref} from 'vue'
 import {
     Dialog,
     DialogPanel,
@@ -11,13 +11,14 @@ import {
     HomeIcon,
     MinusCircleIcon
 } from '@heroicons/vue/24/outline'
-
+import {meHavePosts} from "@/Services/postScrollCleaner.js";
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import { useFlashMessages } from "@/Services/useFlashMessages.js";
 
 import SidebarMenu from "@/Components/Sidebar/SidebarMenu.vue";
 import SidebarMenuYourTeams from "@/Components/Sidebar/SidebarMenuYourTeams.vue";
 import SidebarMenuTeams from "@/Components/Sidebar/SidebarMenuTeams.vue";
+meHavePosts();
 
 const pages = [
     { name: 'Projects', href: '#', current: false },
@@ -68,10 +69,10 @@ const sidebarOpen = ref(false)
                                 leave-from="opacity-100"
                                 leave-to="opacity-0"
                             >
-                                <div class="flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 pb-2">
+                                <div class="flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 pb-2 no-scrollbar">
                                     <div class="flex h-16 shrink-0 items-center justify-between">
                                         <ApplicationLogo class="h-8 w-auto"/>
-                                        <MinusCircleIcon class="h-6 w-6 text-black" aria-hidden="true" @click="sidebarOpen = false"/>
+                                        <MinusCircleIcon class="h-6 w-6 text-black cursor-pointer" aria-hidden="true" @click="sidebarOpen = false"/>
                                     </div>
                                     <nav class="flex flex-1 flex-col">
                                         <ul role="list" class="flex flex-1 flex-col gap-y-7">
@@ -96,10 +97,11 @@ const sidebarOpen = ref(false)
         <!-- Static sidebar for desktop -->
         <div class="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
             <!-- Sidebar component, swap this element with another sidebar if you like -->
-            <div class="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6">
+            <div class="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6 no-scrollbar">
                 <div class="flex h-16 shrink-0 items-center">
                     <ApplicationLogo class="h-8 w-auto"/>
                 </div>
+
                 <nav class="flex flex-1 flex-col">
                     <ul role="list" class="flex flex-1 flex-col gap-y-7">
                         <li>
@@ -136,7 +138,7 @@ const sidebarOpen = ref(false)
 
         <main class="lg:pl-72">
             <div class="xl:pr-96">
-                <nav class="p-6 -mb-10" aria-label="Breadcrumb">
+                <nav class="p-6 -mb-10" aria-label="Breadcrumb" v-show="false">
                     <ol role="list" class="flex items-center space-x-4">
                         <li>
                             <div>
@@ -157,7 +159,9 @@ const sidebarOpen = ref(false)
                     </ol>
                 </nav>
                 <div class="px-4 sm:px-6 lg:px-8">
-                    <slot />
+                    <transition name="fade" mode="out-in">
+                        <slot />
+                    </transition>
                 </div>
             </div>
         </main>
@@ -167,3 +171,15 @@ const sidebarOpen = ref(false)
         </aside>
     </div>
 </template>
+
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+    transition: opacity 0.5s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+    opacity: 0;
+}
+</style>

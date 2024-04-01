@@ -6,6 +6,9 @@ use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @method static exists()
+ */
 class Service extends Model
 {
     protected $table = 'services';

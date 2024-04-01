@@ -70,9 +70,13 @@ Route::middleware(['auth', 'checkUserStatus', 'checkAppointment'])->group(functi
         ->name('appointments.index');
     Route::get('/appointments/create-appointment', [AppointmentController::class, 'create'])
         ->name('appointments.create');
+    Route::get('/appointments/edit-appointment/{appointment}', [AppointmentController::class, 'edit'])
+        ->name('appointments.edit');
 
     Route::post('/appointments/create-appointment', [AppointmentController::class, 'store'])
         ->name('appointments.store');
+    Route::put('/appointments/edit-appointment/{appointment}', [AppointmentController::class, 'update'])
+        ->name('appointments.update');
 });
 
 

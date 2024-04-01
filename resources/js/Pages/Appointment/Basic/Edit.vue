@@ -1,5 +1,5 @@
 <script setup>
-import {computed, ref, watch} from "vue";
+import {computed, onMounted, ref, watch} from "vue";
 import MainFrame from "@/Components/Frames/MainFrame.vue";
 import HeadlessList from "@/Components/HeadlessList.vue";
 import VueDatePicker from '@vuepic/vue-datepicker';
@@ -11,6 +11,9 @@ import InputLabel from "@/Components/InputLabel.vue";
 import InputError from "@/Components/InputError.vue";
 import Checkbox from "@/Components/Checkbox.vue";
 import PrimaryButton from "@/Components/PrimaryButton.vue";
+import StatusDescription from "@/Components/StatusDescription.vue";
+import ListDescription from "@/Components/ListDescription.vue";
+import Toggle from "@/Components/Toggle.vue";
 
 const props = defineProps({
     services: {
@@ -21,8 +24,25 @@ const props = defineProps({
     },
     appointments: {
         type: Array
+    },
+    appointment: {
+        type: Array
     }
 })
+const minutesToHHMMSS = (minutes) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:00`;
+};
+const dateTimeToMinutes = (dateTime) => {
+    const timePart = dateTime.split(' ')[1];
+    return timeToMinutes(timePart.substring(0, 5));
+};
+const timeToMinutes = (time) => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+};
+
 const appointments = computed(() => props.appointments);
 const openingTime = computed(() => {
     // Get the opening time from props
@@ -67,6 +87,7 @@ const openingTime = computed(() => {
 
     return { hours: parseInt(formattedHours), minutes: parseInt(formattedMinutes) };
 });
+
 const closingTime = computed(() => {
     const closingTimeString = props.service.closing_time;
     const [hours, minutes] = closingTimeString.split(':');
@@ -74,17 +95,23 @@ const closingTime = computed(() => {
 });
 
 const { selectedStartTime, selectedEndTime, timeSlots, selectTime, isSelected, isInRange } = useTimePicker(appointments, openingTime, closingTime);
-
+onMounted(() => {
+    if (window.location.search === '') {
+        selectedStartTime.value = dateTimeToMinutes(props.appointment.start_time);
+        selectedEndTime.value = dateTimeToMinutes(props.appointment.end_time);
+    }
+})
 const form = useForm({
-    name: '',
-    email: '',
-    phone: '',
+    name: props.appointment.name ?? null,
+    email: props.appointment.email ?? null,
+    phone: props.appointment.phone ?? null,
     service_id: props.service.id,
     start_time: selectedStartTime.value,
     end_time: selectedEndTime.value,
-    notes: '',
-    price: '',
-    day: ref(new Date()),
+    status: props.appointment.status,
+    notes: props.appointment.notes ?? null,
+    price: props.appointment.price ?? null,
+    day: ref(props.appointment.start_time),
     send_email: false,
     send_message: false
 });
@@ -130,11 +157,6 @@ if (queryParams.has('day')) {
     }
 }
 
-const minutesToHHMMSS = (minutes) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:00`;
-};
 
 
 // Method to handle slot click, differentiating between selectable and displaying info
@@ -200,51 +222,57 @@ const clrs = [
 ];
 
 const createAppointment = () => {
-    form.post(route('appointments.store'),{
-        onSuccess: () => form.reset(),
+    form.put(route('appointments.update', { appointment: props.appointment.id }),{
         preserveState: (page) => Object.keys(page.props.errors).length,
+        replace: true
     });
 }
+
+
 </script>
 
 <template>
-    {{ form }}
+    {{ openingTime }}
     <main-frame>
-        <div class="mt-4">
-            <VueDatePicker
-                locale="tr"
-                v-model="form.day"
-                @update:model-value="handleDate"
-                :is-24="true"
-                :min-date="new Date()"
-                :enable-time-picker="false"
-                ignore-time-validation
-                prevent-min-max-navigation/>
-            <InputError class="mt-2" :message="form.errors.day" />
+        <p class="bg-red-500 font-semibold">Status: {{ appointment.status }}</p>
+
+        <div class="mt-4 flex justify-between space-x-2">
+            <div>
+                <VueDatePicker
+                    locale="tr"
+                    v-model="form.day"
+                    @update:model-value="handleDate"
+                    :is-24="true"
+                    :enable-time-picker="false"
+                    ignore-time-validation
+                />
+                <InputError class="mt-2" :message="form.errors.day" />
+            </div>
+            <StatusDescription v-model="form.status" class="z-50"/>
         </div>
 
         <div class="mt-4">
-            <div class="flex justify-center items-center mb-4">
+            <div class="flex justify-center items-center space-x-2 mb-4">
                 <HeadlessList :list="services" v-model="form.service_id"/>
             </div>
         </div>
     </main-frame>
 
-        <div class="relative mx-auto max-w-4xl px-4 sm:px-6 xl:px-8 bg-white mt-16">
-            <InputError class="mt-2" :message="form.errors.start_time" />
-            <InputError class="mt-2" :message="form.errors.end_time" />
+    <div class="relative mx-auto max-w-4xl px-4 sm:px-6 xl:px-8 bg-white mt-16">
+        <InputError class="mt-2" :message="form.errors.start_time" />
+        <InputError class="mt-2" :message="form.errors.end_time" />
 
-            <div class="isolate grid grid-cols-4 gap-px rounded-lg bg-white p-1 text-sm shadow ring-1 ring-gray-200 sm:grid-cols-8 lg:grid-cols-12">
+        <div class="isolate grid grid-cols-4 gap-px rounded-lg bg-white p-1 text-sm shadow ring-1 ring-gray-200 sm:grid-cols-8 lg:grid-cols-12">
 
-                <button v-for="slot in timeSlots" :key="slot.display" type="button" @click="handleSlotClick(slot)" @dblclick="handleSlotDoubleClick(slot)"
-                        :class="[
+            <button v-for="slot in timeSlots" :key="slot.display" type="button" @click="handleSlotClick(slot)" @dblclick="handleSlotDoubleClick(slot)"
+                    :class="[
                   'py-3 px-1 hover:bg-gray-100 focus:z-10 relative bg-white text-gray-900 border border-transparent rounded-lg',
                   isInRange(slot) ? 'line-through' : '',
                   slot.selectable ? '' : 'cursor-help',
                 ]">
 
-                    <time class="mx-auto flex h-10 w-10 items-center justify-center rounded-full relative"
-                          :class="{
+                <time class="mx-auto flex h-10 w-10 items-center justify-center rounded-full relative"
+                      :class="{
     'bg-indigo-600 font-semibold text-white': isSelected(slot) === 'start',
     'bg-green-600 font-semibold text-white': isSelected(slot) === 'end',
     'bg-green-100 text-gray-500': slot.exclusiveEnd && isSelected(slot) !== 'end' && slot.selectable,
@@ -252,41 +280,43 @@ const createAppointment = () => {
     'bg-gray-200 text-gray-500 line-through': !slot.selectable,
     'border-2 border-white border-dashed': (slot.exclusiveEnd || slot.exclusiveStart) && isSelected(slot) !== 'end' && isSelected(slot) !== 'start' && slot.selectable,
   }"
-                    >
-                        {{ slot.display }}
-                        <template v-if="true">
-                            <!-- Condition for a single image -->
-                            <template v-if="isSelected(slot) && slot.images.length === 0" class="absolute inset-0">
-                                <span class="absolute top-0 block h-2 w-2 rounded-full ring-2 ring-white bg-black"/>
-                            </template>
-
-                            <!-- Condition for a single image -->
-                            <template v-if="slot.images && slot.images.length === 1 && !slot.exclusiveStart && !slot.exclusiveEnd" class="absolute inset-0">
-                                <span class="absolute top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[0]]"/>
-                            </template>
-
-                            <!-- Exclusive End Condition -->
-                            <template v-else-if="slot.exclusiveEnd && !slot.exclusiveStart">
-                                <span class="absolute left-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white bg-black" v-if="isSelected(slot)"/>
-                                <span class="absolute right-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[0]]"/>
-                            </template>
-
-                            <!-- Exclusive Start Condition -->
-                            <template v-else-if="slot.exclusiveStart && !slot.exclusiveEnd">
-                                <span class="absolute right-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white bg-black" v-if="isSelected(slot)"/>
-                                <span class="absolute left-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[0]]"/>
-                            </template>
-
-                            <!-- Conditions for two images -->
-                            <template v-else-if="slot.images && slot.images.length >= 2">
-                                <span class="absolute left-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[0]]"/>
-                                <span class="absolute right-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[1]]"/>
-                            </template>
+                >
+                    {{ slot.display }}
+                    <template v-if="true">
+                        <!-- Condition for a single image -->
+                        <template v-if="isSelected(slot) && slot.images.length === 0" class="absolute inset-0">
+                            <span class="absolute top-0 block h-2 w-2 rounded-full ring-2 ring-white bg-black"/>
                         </template>
-                    </time>
-                </button>
-            </div>
+
+
+
+                        <!-- Condition for a single image -->
+                        <template v-if="slot.images && slot.images.length === 1 && !slot.exclusiveStart && !slot.exclusiveEnd" class="absolute inset-0">
+                            <span class="absolute top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[0]]"/>
+                        </template>
+
+                        <!-- Exclusive End Condition -->
+                        <template v-else-if="slot.exclusiveEnd && !slot.exclusiveStart">
+                            <span class="absolute left-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white bg-black" v-if="isSelected(slot)"/>
+                            <span class="absolute right-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[0]]"/>
+                        </template>
+
+                        <!-- Exclusive Start Condition -->
+                        <template v-else-if="slot.exclusiveStart && !slot.exclusiveEnd">
+                            <span class="absolute right-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white bg-black" v-if="isSelected(slot)"/>
+                            <span class="absolute left-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[0]]"/>
+                        </template>
+
+                        <!-- Conditions for two images -->
+                        <template v-else-if="slot.images && slot.images.length >= 2">
+                            <span class="absolute left-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[0]]"/>
+                            <span class="absolute right-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[1]]"/>
+                        </template>
+                    </template>
+                </time>
+            </button>
         </div>
+    </div>
 
     <main-frame>
         <div class="mt-4">
@@ -316,8 +346,6 @@ const createAppointment = () => {
                 placeholder="example@mail.com"
                 autocomplete="email"
             />
-            <InputLabel for="send_email" value="Send Email" />
-            <checkbox v-model="form.send_email" id="send_email" checked="false"/>
             <InputError class="mt-2" :message="form.errors.email" />
         </div>
 
@@ -359,7 +387,7 @@ const createAppointment = () => {
             <InputError class="mt-2" :message="form.errors.notes" />
         </div>
 
-        <fieldset v-show="form.email || form.phone">
+        <fieldset v-show="(form.email || form.phone) && form.status === 'booked'">
             <legend class="text-sm font-semibold leading-6 text-gray-900">Notify user via:</legend>
             <div class="mt-6 space-y-6">
                 <div class="relative flex gap-x-3" v-show="form.phone">
