@@ -209,7 +209,8 @@ const createAppointment = () => {
 
 <template>
     {{ form }}
-    <main-frame>
+    <div>
+        <main-frame>
         <div class="mt-4">
             <VueDatePicker
                 locale="tr"
@@ -384,6 +385,7 @@ const createAppointment = () => {
         </fieldset>
         <primary-button @click="createAppointment">Create</primary-button>
     </main-frame>
+    </div>
 
 </template>
 

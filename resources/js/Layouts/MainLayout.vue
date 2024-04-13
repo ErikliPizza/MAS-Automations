@@ -27,6 +27,7 @@ const pages = [
 useFlashMessages(); // Initialize flash messages functionality
 
 const sidebarOpen = ref(false)
+defineEmits(['closeSidebar']);
 </script>
 
 <template>

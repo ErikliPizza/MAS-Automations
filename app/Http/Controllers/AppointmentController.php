@@ -41,7 +41,7 @@ class AppointmentController extends Controller
         // Note: Consider consolidating or optimizing this part based on specific use case
         // Assuming $now is already defined
         $appointmentsQuery = $service->appointments()
-            ->select('start_time', 'end_time', 'name', 'email', 'phone', 'status', 'notes');
+            ->select('start_time', 'end_time', 'name', 'email', 'phone', 'status', 'notes', 'id', 'price');
 
         // Ongoing appointment
         $ongoingAppointment = (clone $appointmentsQuery)
@@ -84,6 +84,7 @@ class AppointmentController extends Controller
             ->each(function ($appointment) {
                 $appointment->type = 'future';
             });
+
 
         // Combine all appointments into a single collection, filtering out null values for ongoing, previous, and next
         $allAppointments = collect([$ongoingAppointment, $nextAppointment])
@@ -250,6 +251,41 @@ class AppointmentController extends Controller
     }
 
     /**
+     * @throws AuthorizationException
+     * * you need to have access to appointment module + via middleware
+     * * you need to have access to requested service + via validateAppointmentData
+     * * you need to have access to current appointment + via Appointment Policy
+     */
+    public function updateStatus(Request $request, Appointment $appointment): RedirectResponse
+    {
+        $this->authorize('update', $appointment);
+        $request->merge([
+            'day' => $appointment->start_time,
+            'start_time' => Carbon::parse($appointment->start_time)->format('H:i:s'),
+            'end_time' => Carbon::parse($appointment->end_time)->format('H:i:s')
+        ]);
+
+        $validatedData = $request->validate([
+            'status' => 'required|string|in:booked,completed,cancelled,missed',
+            'day' => 'required|date',
+            'start_time' => 'required|date_format:H:i:s',
+            'end_time' => 'required|date_format:H:i:s|after:start_time',
+        ]);
+
+        if ($validatedData['status'] === 'booked') {
+            $validator = $this->checkStatusValid($validatedData);
+            if ($validator->messages()->has('end_time')) {
+                return redirect()->back()->with('error', 'This appointment can not be set as booked because of the time stamps.');
+            }
+        }
+        // Update the appointment
+        $appointment->update([
+            'status' => $validatedData['status'],
+        ]);
+        return redirect()->back()->with('success', 'Appointment has been updated successfully.');
+    }
+
+    /**
      * Validate appointment request data.
      * @throws AuthorizationException
      * @throws ValidationException
@@ -275,27 +311,9 @@ class AppointmentController extends Controller
         // Perform validation
         $validatedData = $request->validate($rules);
 
-        // Merge the date and time to create full timestamps with specific time zone
-        $date = Carbon::parse($validatedData['day'], $this->timeZone)->toDateString();
-        $startTimestamp = Carbon::createFromFormat('Y-m-d H:i:s', $date . ' ' . $validatedData['start_time'], $this->timeZone);
-        $endTimestamp = Carbon::createFromFormat('Y-m-d H:i:s', $date . ' ' . $validatedData['end_time'], $this->timeZone);
-
         if ($validatedData['status'] === 'booked') {
-            $now = Carbon::now($this->timeZone); // Get the current time with the same time zone
-
-            // Check if either the start or end time is not in the future
-            if (!$startTimestamp->isFuture() || !$endTimestamp->isFuture()) {
-                // Initialize Validator for custom error messages
-                $validator = Validator::make([], []); // Empty data and rules for manual error addition
-
-                // Add custom error messages only if the times are not in the future
-                if (!$startTimestamp->isFuture()) {
-                    $validator->errors()->add('start_time', 'The start time must be in the future.');
-                }
-                if (!$endTimestamp->isFuture()) {
-                    $validator->errors()->add('end_time', 'The end time must be in the future.');
-                }
-
+            $validator = $this->checkStatusValid($validatedData);
+            if ($validator->messages()->has('end_time')) {
                 throw new ValidationException($validator);
             }
         }
@@ -312,6 +330,23 @@ class AppointmentController extends Controller
         return $validatedData;
     }
 
+    private function checkStatusValid($validatedData): \Illuminate\Validation\Validator
+    {
+        [$startTimestamp, $endTimestamp] = $this->createTimestamps($validatedData);
+
+        // Initialize Validator for custom error messages
+        $validator = Validator::make([], []); // Empty data and rules for manual error addition
+
+        // Check if either the start or end time is not in the future
+        if (!$startTimestamp->isFuture($this->timeZone)) {
+            $validator->errors()->add('start_time', 'The start time must be in the future.');
+        }
+        if (!$endTimestamp->isFuture($this->timeZone)) {
+            $validator->errors()->add('end_time', 'The end time must be in the future.');
+        }
+
+        return $validator;
+    }
 
     /**
      * Check for overlapping appointments.

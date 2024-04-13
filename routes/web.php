@@ -77,6 +77,10 @@ Route::middleware(['auth', 'checkUserStatus', 'checkAppointment'])->group(functi
         ->name('appointments.store');
     Route::put('/appointments/edit-appointment/{appointment}', [AppointmentController::class, 'update'])
         ->name('appointments.update');
+    Route::put('/appointments/update-status/{appointment}', [AppointmentController::class, 'updateStatus'])
+        ->name('appointments.updateStatus');
+
+
 });
 
 

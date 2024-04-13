@@ -232,47 +232,47 @@ const createAppointment = () => {
 </script>
 
 <template>
-    {{ openingTime }}
-    <main-frame>
-        <p class="bg-red-500 font-semibold">Status: {{ appointment.status }}</p>
+    <div>
+        <main-frame>
+            <p class="bg-red-500 font-semibold">Status: {{ appointment.status }}</p>
 
-        <div class="mt-4 flex justify-between space-x-2">
-            <div>
-                <VueDatePicker
-                    locale="tr"
-                    v-model="form.day"
-                    @update:model-value="handleDate"
-                    :is-24="true"
-                    :enable-time-picker="false"
-                    ignore-time-validation
-                />
-                <InputError class="mt-2" :message="form.errors.day" />
+            <div class="mt-4 flex justify-between space-x-2">
+                <div>
+                    <VueDatePicker
+                        locale="tr"
+                        v-model="form.day"
+                        @update:model-value="handleDate"
+                        :is-24="true"
+                        :enable-time-picker="false"
+                        ignore-time-validation
+                    />
+                    <InputError class="mt-2" :message="form.errors.day" />
+                </div>
+                <StatusDescription v-model="form.status" class="z-50"/>
             </div>
-            <StatusDescription v-model="form.status" class="z-50"/>
-        </div>
 
-        <div class="mt-4">
-            <div class="flex justify-center items-center space-x-2 mb-4">
-                <HeadlessList :list="services" v-model="form.service_id"/>
+            <div class="mt-4">
+                <div class="flex justify-center items-center space-x-2 mb-4">
+                    <HeadlessList :list="services" v-model="form.service_id"/>
+                </div>
             </div>
-        </div>
-    </main-frame>
+        </main-frame>
 
-    <div class="relative mx-auto max-w-4xl px-4 sm:px-6 xl:px-8 bg-white mt-16">
-        <InputError class="mt-2" :message="form.errors.start_time" />
-        <InputError class="mt-2" :message="form.errors.end_time" />
+        <div class="relative mx-auto max-w-4xl px-4 sm:px-6 xl:px-8 bg-white mt-16">
+            <InputError class="mt-2" :message="form.errors.start_time" />
+            <InputError class="mt-2" :message="form.errors.end_time" />
 
-        <div class="isolate grid grid-cols-4 gap-px rounded-lg bg-white p-1 text-sm shadow ring-1 ring-gray-200 sm:grid-cols-8 lg:grid-cols-12">
+            <div class="isolate grid grid-cols-4 gap-px rounded-lg bg-white p-1 text-sm shadow ring-1 ring-gray-200 sm:grid-cols-8 lg:grid-cols-12">
 
-            <button v-for="slot in timeSlots" :key="slot.display" type="button" @click="handleSlotClick(slot)" @dblclick="handleSlotDoubleClick(slot)"
-                    :class="[
+                <button v-for="slot in timeSlots" :key="slot.display" type="button" @click="handleSlotClick(slot)" @dblclick="handleSlotDoubleClick(slot)"
+                        :class="[
                   'py-3 px-1 hover:bg-gray-100 focus:z-10 relative bg-white text-gray-900 border border-transparent rounded-lg',
                   isInRange(slot) ? 'line-through' : '',
                   slot.selectable ? '' : 'cursor-help',
                 ]">
 
-                <time class="mx-auto flex h-10 w-10 items-center justify-center rounded-full relative"
-                      :class="{
+                    <time class="mx-auto flex h-10 w-10 items-center justify-center rounded-full relative"
+                          :class="{
     'bg-indigo-600 font-semibold text-white': isSelected(slot) === 'start',
     'bg-green-600 font-semibold text-white': isSelected(slot) === 'end',
     'bg-green-100 text-gray-500': slot.exclusiveEnd && isSelected(slot) !== 'end' && slot.selectable,
@@ -280,139 +280,139 @@ const createAppointment = () => {
     'bg-gray-200 text-gray-500 line-through': !slot.selectable,
     'border-2 border-white border-dashed': (slot.exclusiveEnd || slot.exclusiveStart) && isSelected(slot) !== 'end' && isSelected(slot) !== 'start' && slot.selectable,
   }"
-                >
-                    {{ slot.display }}
-                    <template v-if="true">
-                        <!-- Condition for a single image -->
-                        <template v-if="isSelected(slot) && slot.images.length === 0" class="absolute inset-0">
-                            <span class="absolute top-0 block h-2 w-2 rounded-full ring-2 ring-white bg-black"/>
+                    >
+                        {{ slot.display }}
+                        <template v-if="true">
+                            <!-- Condition for a single image -->
+                            <template v-if="isSelected(slot) && slot.images.length === 0" class="absolute inset-0">
+                                <span class="absolute top-0 block h-2 w-2 rounded-full ring-2 ring-white bg-black"/>
+                            </template>
+
+
+
+                            <!-- Condition for a single image -->
+                            <template v-if="slot.images && slot.images.length === 1 && !slot.exclusiveStart && !slot.exclusiveEnd" class="absolute inset-0">
+                                <span class="absolute top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[0]]"/>
+                            </template>
+
+                            <!-- Exclusive End Condition -->
+                            <template v-else-if="slot.exclusiveEnd && !slot.exclusiveStart">
+                                <span class="absolute left-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white bg-black" v-if="isSelected(slot)"/>
+                                <span class="absolute right-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[0]]"/>
+                            </template>
+
+                            <!-- Exclusive Start Condition -->
+                            <template v-else-if="slot.exclusiveStart && !slot.exclusiveEnd">
+                                <span class="absolute right-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white bg-black" v-if="isSelected(slot)"/>
+                                <span class="absolute left-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[0]]"/>
+                            </template>
+
+                            <!-- Conditions for two images -->
+                            <template v-else-if="slot.images && slot.images.length >= 2">
+                                <span class="absolute left-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[0]]"/>
+                                <span class="absolute right-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[1]]"/>
+                            </template>
                         </template>
-
-
-
-                        <!-- Condition for a single image -->
-                        <template v-if="slot.images && slot.images.length === 1 && !slot.exclusiveStart && !slot.exclusiveEnd" class="absolute inset-0">
-                            <span class="absolute top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[0]]"/>
-                        </template>
-
-                        <!-- Exclusive End Condition -->
-                        <template v-else-if="slot.exclusiveEnd && !slot.exclusiveStart">
-                            <span class="absolute left-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white bg-black" v-if="isSelected(slot)"/>
-                            <span class="absolute right-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[0]]"/>
-                        </template>
-
-                        <!-- Exclusive Start Condition -->
-                        <template v-else-if="slot.exclusiveStart && !slot.exclusiveEnd">
-                            <span class="absolute right-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white bg-black" v-if="isSelected(slot)"/>
-                            <span class="absolute left-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[0]]"/>
-                        </template>
-
-                        <!-- Conditions for two images -->
-                        <template v-else-if="slot.images && slot.images.length >= 2">
-                            <span class="absolute left-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[0]]"/>
-                            <span class="absolute right-1 top-0 block h-2 w-2 rounded-full ring-2 ring-white" :class="clrs[slot.images[1]]"/>
-                        </template>
-                    </template>
-                </time>
-            </button>
+                    </time>
+                </button>
+            </div>
         </div>
+
+        <main-frame>
+            <div class="mt-4">
+                <InputLabel for="name" value="Name *" />
+
+                <TextInput
+                    id="name"
+                    type="text"
+                    class="mt-1 block w-full"
+                    v-model="form.name"
+                    :placeholder="appointment.name ?? 'John Doe'"
+                    required
+                    autocomplete="name"
+                />
+
+                <InputError class="mt-2" :message="form.errors.name" />
+            </div>
+
+            <div class="mt-4" ref="scrollTarget">
+                <InputLabel for="email" value="Email" />
+
+                <TextInput
+                    id="email"
+                    type="email"
+                    class="mt-1 block w-full"
+                    v-model="form.email"
+                    :placeholder="appointment.email ?? 'example@mail.com'"
+                    autocomplete="email"
+                />
+                <InputError class="mt-2" :message="form.errors.email" />
+            </div>
+
+            <div class="mt-4">
+                <InputLabel for="phone" value="Phone" />
+
+                <TextInput
+                    id="phone"
+                    type="text"
+                    class="mt-1 block w-full"
+                    v-model="form.phone"
+                    :placeholder="appointment.phone ?? '05431122333'"
+                    autocomplete="phone"
+                />
+
+                <InputError class="mt-2" :message="form.errors.phone" />
+            </div>
+
+            <div class="mt-4">
+                <div>
+                    <label for="price" class="block text-sm font-medium leading-6 text-gray-900">Price</label>
+                    <div class="relative mt-2 rounded-md shadow-sm">
+                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                            <span class="text-gray-500 sm:text-sm">₺</span>
+                        </div>
+                        <input type="text" name="price" id="price" v-model="form.price" class="block w-full rounded-md border-0 py-1.5 pl-7 pr-12 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" :placeholder="appointment.price ?? '125.00'" aria-describedby="price-currency" />
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                            <span class="text-gray-500 sm:text-sm" id="price-currency">TL</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <InputLabel for="notes" value="Notes " />
+
+                <textarea v-model="form.notes" rows="3" name="notes" id="notes" class="block w-full resize-none border-0 border-b border-transparent p-0 pb-2 text-gray-900 placeholder:text-gray-400 focus:border-indigo-600 focus:ring-0 sm:text-sm sm:leading-6" placeholder="Add a note here..." />
+
+                <InputError class="mt-2" :message="form.errors.notes" />
+            </div>
+
+            <fieldset v-show="(form.email || form.phone) && form.status === 'booked'">
+                <legend class="text-sm font-semibold leading-6 text-gray-900">Notify user via:</legend>
+                <div class="mt-6 space-y-6">
+                    <div class="relative flex gap-x-3" v-show="form.phone">
+                        <div class="flex h-6 items-center">
+                            <input v-model="form.send_message" id="comments" name="comments" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
+                        </div>
+                        <div class="text-sm leading-6">
+                            <label for="comments" class="font-medium text-gray-900">Message</label>
+                            <p class="text-gray-500">Get notified via WhatsApp</p>
+                        </div>
+                    </div>
+                    <div class="relative flex gap-x-3" v-show="form.email">
+                        <div class="flex h-6 items-center">
+                            <input v-model="form.send_email" id="candidates" name="candidates" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
+                        </div>
+                        <div class="text-sm leading-6">
+                            <label for="candidates" class="font-medium text-gray-900">E-mail</label>
+                            <p class="text-gray-500">Get notified via e-mail</p>
+                        </div>
+                    </div>
+                </div>
+            </fieldset>
+            <primary-button @click="createAppointment">Create</primary-button>
+        </main-frame>
     </div>
-
-    <main-frame>
-        <div class="mt-4">
-            <InputLabel for="name" value="Name *" />
-
-            <TextInput
-                id="name"
-                type="text"
-                class="mt-1 block w-full"
-                v-model="form.name"
-                placeholder="John Doe"
-                required
-                autocomplete="name"
-            />
-
-            <InputError class="mt-2" :message="form.errors.name" />
-        </div>
-
-        <div class="mt-4" ref="scrollTarget">
-            <InputLabel for="email" value="Email" />
-
-            <TextInput
-                id="email"
-                type="email"
-                class="mt-1 block w-full"
-                v-model="form.email"
-                placeholder="example@mail.com"
-                autocomplete="email"
-            />
-            <InputError class="mt-2" :message="form.errors.email" />
-        </div>
-
-        <div class="mt-4">
-            <InputLabel for="phone" value="Phone" />
-
-            <TextInput
-                id="phone"
-                type="text"
-                class="mt-1 block w-full"
-                v-model="form.phone"
-                placeholder="05423852522"
-                autocomplete="phone"
-            />
-
-            <InputError class="mt-2" :message="form.errors.phone" />
-        </div>
-
-        <div class="mt-4">
-            <div>
-                <label for="price" class="block text-sm font-medium leading-6 text-gray-900">Price</label>
-                <div class="relative mt-2 rounded-md shadow-sm">
-                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                        <span class="text-gray-500 sm:text-sm">₺</span>
-                    </div>
-                    <input type="text" name="price" id="price" v-model="form.price" class="block w-full rounded-md border-0 py-1.5 pl-7 pr-12 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6" placeholder="0.00" aria-describedby="price-currency" />
-                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                        <span class="text-gray-500 sm:text-sm" id="price-currency">TL</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="mt-4">
-            <InputLabel for="notes" value="Notes " />
-
-            <textarea v-model="form.notes" rows="3" name="notes" id="notes" class="block w-full resize-none border-0 border-b border-transparent p-0 pb-2 text-gray-900 placeholder:text-gray-400 focus:border-indigo-600 focus:ring-0 sm:text-sm sm:leading-6" placeholder="Add your bio..." />
-
-            <InputError class="mt-2" :message="form.errors.notes" />
-        </div>
-
-        <fieldset v-show="(form.email || form.phone) && form.status === 'booked'">
-            <legend class="text-sm font-semibold leading-6 text-gray-900">Notify user via:</legend>
-            <div class="mt-6 space-y-6">
-                <div class="relative flex gap-x-3" v-show="form.phone">
-                    <div class="flex h-6 items-center">
-                        <input v-model="form.send_message" id="comments" name="comments" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
-                    </div>
-                    <div class="text-sm leading-6">
-                        <label for="comments" class="font-medium text-gray-900">Message</label>
-                        <p class="text-gray-500">Get notified via WhatsApp</p>
-                    </div>
-                </div>
-                <div class="relative flex gap-x-3" v-show="form.email">
-                    <div class="flex h-6 items-center">
-                        <input v-model="form.send_email" id="candidates" name="candidates" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600" />
-                    </div>
-                    <div class="text-sm leading-6">
-                        <label for="candidates" class="font-medium text-gray-900">E-mail</label>
-                        <p class="text-gray-500">Get notified via e-mail</p>
-                    </div>
-                </div>
-            </div>
-        </fieldset>
-        <primary-button @click="createAppointment">Create</primary-button>
-    </main-frame>
-
 </template>
 
 <style scoped>
