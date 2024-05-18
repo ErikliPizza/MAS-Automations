@@ -2,8 +2,8 @@
 import MainFrame from "@/Components/Frames/MainFrame.vue";
 import HeadlessList from "@/Components/HeadlessList.vue";
 import {CheckIcon, ExclamationCircleIcon, XCircleIcon, ArrowsPointingOutIcon, ArrowsPointingInIcon} from "@heroicons/vue/24/solid/index.js";
-import {ClockIcon } from "@heroicons/vue/24/outline/index.js";
-import {computed, onMounted, ref, watch} from "vue";
+import {ClockIcon, RectangleGroupIcon, ArrowUpCircleIcon, ArrowDownCircleIcon} from "@heroicons/vue/24/outline/index.js";
+import {onMounted, ref, watch} from "vue";
 import {router} from "@inertiajs/vue3";
 import {useQueryParam} from "@/Services/useQueryParam.js";
 import WideFrame from "@/Components/Frames/WideFrame.vue";
@@ -14,7 +14,6 @@ import SectionParagraph from "@/Pages/Appointment/Basic/Partials/Index/Elements/
 import StatusMenu from "@/Pages/Appointment/Basic/Partials/Index/Elements/StatusMenu.vue";
 import Card from "@/Pages/Appointment/Basic/Partials/Index/Elements/Card.vue";
 import PhoneAction from "@/Pages/Appointment/Basic/Partials/Index/Elements/PhoneAction.vue";
-
 
 const container = ref(null);
 const openCard = ref(false);
@@ -29,13 +28,16 @@ const appointmentsRange = ref(1);
 const expand = ref(false);
 const props = defineProps({
     services: {
-        type: Array,
+        type: Object,
     },
     service: {
-        type: Array
+        type: Object
     },
     appointments: {
-        type: Array
+        type: Object
+    },
+    heroAppointment: {
+        type: Object
     }
 })
 onMounted(() => {
@@ -47,31 +49,43 @@ onMounted(() => {
 function setAppointmentRange () {
     appointmentsRange.value = 1;
     setTimeout( () => {
-        if (hasOngoingAppointment.value) {
-            appointmentsRange.value = findOngoingAppointmentIndex.value+1;
-        } else if (hasNextAppointment.value) {
-            appointmentsRange.value = findNextAppointmentIndex.value+1;
-        } else {
-            appointmentsRange.value = 1;
+        if (props.heroAppointment) {
+            appointmentsRange.value = props.appointments.findIndex(appointment => appointment.selected)+1;
         }
     }, 200)
 
 }
+
+// Function to handle mouse wheel scrolling
+const handleScroll = (event) => {
+    // Increase or decrease the value based on scroll direction
+    if (event.deltaY > 0) {
+        appointmentsRange.value += 1; // Decrease value
+    } else {
+        appointmentsRange.value -= 1; // Increase value
+    }
+
+    // Ensure the value stays within the range of 0 to 100
+    appointmentsRange.value = Math.min(Math.max(appointmentsRange.value, 1), props.appointments.length);
+};
+
 watch(() => props.service.id, (newValue, oldValue) => {
     if (newValue && newValue !== oldValue) {
         router.reload({
-            only: ['service', 'appointments'],
+            only: ['service', 'appointments', 'heroAppointment'],
             data: {
                 'service': newValue
             },
             replace: true
+        }, {
+            onFinish: setAppointmentRange(),
         })
     }
 });
 
 
-watch(() => appointmentsRange.value, (newValue, oldValue) => {
-    let x = document.getElementById('appointment-'+(newValue-1));
+watch(() => appointmentsRange.value, (newValue) => {
+    let x = document.getElementById('appointment-'+(newValue-2)) ?? document.getElementById('appointment-0');
     if (x) {
         let containerRect = container.value.getBoundingClientRect();
         let elementRect = x.getBoundingClientRect();
@@ -100,6 +114,7 @@ const getStatusColor = (status) => {
             return 'bg-gray-300'; // A default color if none of the statuses match
     }
 }
+
 const getStatusColorAsText = (status) => {
     switch (status) {
         case 'completed':
@@ -112,34 +127,6 @@ const getStatusColorAsText = (status) => {
             return 'text-indigo-300'; // A default color if none of the statuses match
     }
 }
-
-const hasOngoingAppointment = computed(() => {
-    return props.appointments.find(appointment => appointment.type === "ongoing") || null;
-});
-
-const findOngoingAppointmentIndex = computed(() => {
-    return props.appointments.findIndex(appointment => appointment.type === "ongoing");
-});
-
-const hasNextAppointment = computed(() => {
-    return props.appointments.find(appointment => appointment.type === "next") || null;
-});
-
-const findNextAppointmentIndex = computed(() => {
-    return props.appointments.findIndex(appointment => appointment.type === "next");
-});
-
-const heroAppointment = computed(()=> {
-    if (hasOngoingAppointment.value) {
-        return hasOngoingAppointment.value;
-    } else if (hasNextAppointment.value) {
-        return hasNextAppointment.value;
-    } else {
-        return false
-    }
-})
-
-
 </script>
 
 <template>
@@ -168,14 +155,16 @@ const heroAppointment = computed(()=> {
                             <p class="font-semibold text-xs text-gray-600">
                                 {{ dateTimeToTime(heroAppointment.start_time) }} - {{ dateTimeToTime(heroAppointment.end_time) }}
                             </p>
-                            <div class="flex justify-center">
-                            <span class="text-center font-bold text-xs text-gray-600 italic">
-                                {{ heroAppointment.type }}
-                            </span>
-                                &nbsp;
-                                <ClockIcon v-if="heroAppointment.email || heroAppointment.phone" class="w-3 h-3 text-gray-400"/>
+                            <div class="flex justify-center" v-if="heroAppointment.type === 'next'">
+                                <div class="flex">
+                                    <div class="dot bg-sky-300"></div>
+                                    <div class="dot bg-sky-300"></div>
+                                    <div class="dot bg-sky-300"></div>
+                                </div>
                             </div>
-
+                            <div class="flex justify-center" v-else>
+                                <div class="h-2.5 w-2.5 rounded-full bg-indigo-600 blinking-dot" />
+                            </div>
                         </div>
                     </div>
                     <SectionParagraph>
@@ -190,86 +179,93 @@ const heroAppointment = computed(()=> {
                     </SectionParagraph>
                 </section>
 
-                <div class="relative" v-show="appointments.length > 2">
-                    <div class="flex justify-end">
-                        <ArrowsPointingOutIcon class="h-6 w-6 text-gray-600 cursor-pointer p-0.5" v-if="!expand" @click="expand=true"/>
-                        <ArrowsPointingInIcon class="h-6 w-6 text-gray-600 cursor-pointer p-0.5" v-else @click="() => {expand=false; setAppointmentRange();}"/>
-                    </div>
+                <div class="relative" v-show="appointments.length > 3">
                     <div v-show="!expand">
-                        <input v-model="appointmentsRange" name="appointments-range-input" id="appointments-range-input" type="range" min="1" :max="appointments.length" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" list="appointment-indicators">
-                        <span class="text-sm text-gray-500 dark:text-gray-400 absolute start-0 -bottom-6">{{ timestampToHHMM(service.opening_time) }}</span>
-                        <span class="text-sm text-gray-500 dark:text-gray-400 absolute end-0 -bottom-6">{{ timestampToHHMM(service.closing_time) }}</span>
-                        <datalist id="appointment-indicators" class="w-full mt-2">
-                            <option v-for="(appointment, index) in appointments" :value="index + 1" @click="appointmentsRange = (index + 1)">
-                                <div :class="getStatusColorAsText(appointment.status)" class="text-2xl font-bold">-</div>
+                        <input v-show="false" v-model="appointmentsRange" name="appointments-range-input" id="appointments-range-input" type="range" min="1" :max="appointments.length" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" list="appointment-indicators">
+                        <datalist id="appointment-indicators" class="w-full">
+                            <option v-for="(appointment, index) in appointments" :value="index + 1" @click="appointmentsRange = (index + 1)" class="cursor-pointer w-10 h-6 flex justify-center items-center">
+                                <RectangleGroupIcon class="w-4 h-4" :class="[appointment.selected ? 'text-indigo-500 blink' : getStatusColorAsText(appointment.status) ]"/>
                             </option>
                         </datalist>
                     </div>
                 </div>
 
-                <ol role="list" class="overflow-hidden" :class="[expand ? '' : 'h-32']" ref="container">
-                    <li v-for="(appointment, appointmentIdx) in appointments" :key="appointmentIdx" :id="'appointment-'+appointmentIdx" :class="[appointmentIdx !== appointments.length - 1 ? 'pb-10' : '', 'relative']">
+                <div class="relative">
+                    <div class="flex justify-end items-center">
+                        <ArrowsPointingOutIcon class="h-8 w-8 text-gray-600 cursor-pointer p-0.5 opacity-10 hover:scale-150 hover:opacity-100 duration-150" v-if="!expand" @click="expand=true"/>
+                        <ArrowsPointingInIcon class="h-8 w-8 text-gray-600 cursor-pointer p-0.5 opacity-10 hover:scale-150 hover:opacity-100 duration-150" v-else @click="() => {expand=false; setAppointmentRange();}"/>
+                    </div>
+                    <!-- Top button -->
+                    <button @click="appointmentsRange -= 2" :disabled="appointmentsRange <= 2" v-show="!expand && appointments.length > 2">
+                        <ArrowUpCircleIcon class="absolute top-8 right-0 z-10 w-8 h-8 cursor-pointer text-gray-400 hover:text-gray-600"/>
+                    </button>
 
-                        <div
-                            v-if="appointmentIdx !== appointments.length - 1"
-                            class="absolute left-4 top-4 -ml-px mt-0.5 h-full w-0.5"
-                            :class="getStatusColor(appointment.status)"
-                            aria-hidden="true" />
+                    <!-- Your existing list -->
+                    <ol role="list" class="overflow-hidden" :class="[expand ? '' : 'h-52']" ref="container" @wheel="handleScroll">
+                        <li v-for="(appointment, appointmentIdx) in appointments" :key="appointmentIdx" :id="'appointment-'+appointmentIdx" :class="[appointmentIdx !== appointments.length - 1 ? 'pb-10' : '', 'relative']">
 
-                        <div class="group relative flex items-start">
+                            <div
+                                v-if="appointmentIdx !== appointments.length - 1"
+                                class="absolute left-4 top-4 -ml-px mt-0.5 h-full w-0.5"
+                                :class="getStatusColor(appointment.status)"
+                                aria-hidden="true" />
 
-                            <AppointmentType v-if="appointment.type === 'previous'">
-                                <div class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-green-500 group-hover:bg-green-600" v-if="appointment.status === 'completed'">
-                                    <CheckIcon class="h-5 w-5 text-white" aria-hidden="true" />
-                                </div>
-                                <div class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-orange-500 group-hover:bg-orange-600" v-else-if="appointment.status === 'missed'">
-                                    <ExclamationCircleIcon class="h-5 w-5 text-white" aria-hidden="true" />
-                                </div>
-                                <div class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-red-500 group-hover:bg-red-600" v-else>
-                                    <XCircleIcon class="h-5 w-5 text-white" aria-hidden="true" />
-                                </div>
-                            </AppointmentType>
+                            <div class="group relative flex items-start">
 
-                            <AppointmentType v-else-if="appointment.type === 'ongoing'" ref="specificSection">
-                                <div class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 border-indigo-600 bg-white">
-                                    <div class="h-2.5 w-2.5 rounded-full bg-indigo-600 blinking-dot" />
-                                </div>
-                            </AppointmentType>
-
-                            <AppointmentType v-else-if="appointment.type === 'next'">
-                                <div class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 border-gray-300 bg-white">
-                                    <div class="flex" v-show="hasOngoingAppointment === null">
-                                        <div class="dot bg-sky-300"></div>
-                                        <div class="dot bg-sky-300"></div>
-                                        <div class="dot bg-sky-300"></div>
+                                <AppointmentType v-if="appointment.status !== 'booked'">
+                                    <div class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-green-500 group-hover:bg-green-600" v-if="appointment.status === 'completed'">
+                                        <CheckIcon class="h-5 w-5 text-white" aria-hidden="true" />
                                     </div>
-                                </div>
-                            </AppointmentType>
+                                    <div class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-orange-500 group-hover:bg-orange-600" v-else-if="appointment.status === 'missed'">
+                                        <ExclamationCircleIcon class="h-5 w-5 text-white" aria-hidden="true" />
+                                    </div>
+                                    <div class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-red-500 group-hover:bg-red-600" v-else-if="appointment.status === 'cancelled'">
+                                        <XCircleIcon class="h-5 w-5 text-white" aria-hidden="true" />
+                                    </div>
+                                </AppointmentType>
 
-
-                            <AppointmentType v-else>
-                                <div class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 border-gray-300 bg-white group-hover:border-gray-400">
-                                    <div class="h-2.5 w-2.5 rounded-full bg-transparent group-hover:bg-gray-300" />
-                                </div>
-                            </AppointmentType>
-                            <div class="ml-4 flex min-w-0 flex-col">
-                                <div class="flex">
-                                    <div class="flex justify-between items-center">
-                                        <div
-                                            @click="openCardModal(appointment)"
-                                            class="text-sm font-medium cursor-pointer" :class="{'text-indigo-600' : appointment.type === 'ongoing'}">
-                                            {{ appointment.name }}
-                                        </div>
-                                        <div class="ms-2">
-                                            <StatusMenu :appointment="appointment" />
+                                <AppointmentType v-else-if="appointment.selected">
+                                    <div class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 border-indigo-600 bg-white" v-if="appointment.type === 'ongoing'">
+                                        <div class="h-2.5 w-2.5 rounded-full bg-indigo-600 blinking-dot" />
+                                    </div>
+                                    <div class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 border-gray-300 bg-white" v-else>
+                                        <div class="flex">
+                                            <div class="dot bg-sky-300"></div>
+                                            <div class="dot bg-sky-300"></div>
+                                            <div class="dot bg-sky-300"></div>
                                         </div>
                                     </div>
+                                </AppointmentType>
+
+                                <AppointmentType v-else>
+                                    <div class="relative z-10 flex h-8 w-8 items-center justify-center rounded-full border-2 border-gray-300 bg-white group-hover:border-gray-400">
+                                        <div class="h-2.5 w-2.5 rounded-full bg-transparent group-hover:bg-gray-300" />
+                                    </div>
+                                </AppointmentType>
+
+                                <div class="ml-4 flex min-w-0 flex-col">
+                                    <div class="flex">
+                                        <div class="flex justify-between items-center">
+                                            <div
+                                                @click="openCardModal(appointment)"
+                                                class="text-sm font-medium cursor-pointer" :class="{'text-indigo-600' : appointment.type === 'ongoing'}">
+                                                {{ appointment.name }}
+                                            </div>
+                                            <div class="ms-2">
+                                                <StatusMenu :appointment="appointment" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <span class="text-sm text-gray-500">{{ dateTimeToTime(appointment.start_time) }} - {{ dateTimeToTime(appointment.end_time) }}</span>
                                 </div>
-                                <span class="text-sm text-gray-500">{{ dateTimeToTime(appointment.start_time) }} - {{ dateTimeToTime(appointment.end_time) }}</span>
                             </div>
-                        </div>
-                    </li>
-                </ol>
+                        </li>
+                    </ol>
+                    <!-- Bottom button -->
+                    <button @click="appointmentsRange += 2" :disabled="appointmentsRange > (appointments.length-2)" v-show="!expand && appointments.length > 2">
+                        <ArrowDownCircleIcon class="absolute bottom-8 right-0 z-10 w-8 h-8 cursor-pointer text-gray-400 hover:text-gray-600" />
+                    </button>
+                </div>
             </main-frame>
         </wide-frame>
         <!-- modals -->
@@ -294,7 +290,16 @@ option {
 input[type="range"] {
     margin: 0;
 }
-
+input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #f60202;
+    cursor: pointer;
+    border-radius: 50%;
+    margin-top: -5px;
+}
 /* Define the blinking animation */
 @keyframes blink {
     0%, 100% {
@@ -310,6 +315,10 @@ input[type="range"] {
 /* Apply the animation to the blinking dot */
 .blinking-dot {
     animation: blink 3s linear infinite;
+}
+
+.blink {
+    animation: blink 2s infinite;
 }
 
 .dot {

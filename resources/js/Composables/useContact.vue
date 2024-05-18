@@ -24,13 +24,17 @@ export function useContact() {
     };
 
     // This function generates a VCard (contact card) in the form of a .vcf file and triggers its download.
-    const addContact = (name, number, email) => {
+    const addContact = (name, number, email = null) => {
+        let emailField = "";
+        if (email !== null) {
+            emailField = `EMAIL;TYPE=:${email}\r\n`
+        }
         // Create the VCard data string.
         const vCardData = `BEGIN:VCARD\r\n
 VERSION:3.0\r\n
 FN:${name}\r\n
 TEL;TYPE=:${number}\r\n
-EMAIL;TYPE=:${email}\r\n
+${emailField}
 END:VCARD`;
 
         // Create a Blob containing the VCard data.

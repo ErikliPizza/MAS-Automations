@@ -21,6 +21,6 @@ class CanAccessAdminOrRoot
         }
 
         // Redirect to login page or a designated page if the user is not an admin
-        return redirect('login');
+        return response('Unauthorized.', 403);
     }
 }

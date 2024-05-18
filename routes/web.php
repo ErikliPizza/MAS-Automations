@@ -10,36 +10,57 @@ use App\Http\Controllers\UserController;
 |--------------------------------------------------------------------------
 | Web Routes
 |--------------------------------------------------------------------------
-|
-| Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| contains the "web" middleware group. Now create something great!
+| checkUserStatus is must be next to the auth. It checks if the user status is active/inactive and expiry date
 |
 */
 
 Route::get('/', function () {
-    if (auth()->check()) {
-        return Inertia::render('Welcome');
-    } else {
-        return redirect()->to('/login');
-    }
-})->name('home');
+    return Inertia::render('Welcome');
+})->name('home')->middleware('auth');
 
 
+/*
+ * List Users (GET)
+ * List User (GET)
+ * */
 Route::middleware(['auth', 'checkUserStatus'])->group(function () {
+
+    // list users
     Route::get('/users', [UserController::class, 'index'])
-        ->name('users.index');
+        ->name('user.index');
+
+    // list user
+    Route::get('/user/{user}', [UserController::class, 'show'])
+        ->name('user.show');
 });
+
+/*
+ * Create User Form (GET)
+ * Store User (POST)
+ *
+ * Edit User Form (GET)
+ * Update User (PUT)
+ *
+ * Delete User (POST)
+ * */
 Route::middleware(['auth', 'checkUserStatus', 'canAccessAdminOrRoot'])->group(function () {
-    Route::get('/users/{user}', [UserController::class, 'create'])
-        ->name('users.create');
+
+    // create user
+    Route::get('/users/new', [UserController::class, 'create'])
+        ->name('user.create');
+    Route::post('/users', [UserController::class, 'store'])
+    ->name('user.store');
+
+    // edit user
+    Route::get('/users/{user}/edit', [UserController::class, 'edit'])
+        ->name('user.edit');
     Route::put('/users/{user}', [UserController::class, 'update'])
-        ->name('users.update');
+        ->name('user.update');
+
+    // delete user
     Route::delete('/users/{user}', [UserController::class, 'destroy'])
-        ->name('users.delete');
-    Route::get('/create-user', [RegisteredUserController::class, 'create'])
-        ->name('create-user');
-    Route::post('create-user', [RegisteredUserController::class, 'store']);
+        ->name('user.delete');
+
 });
 
 Route::middleware(['auth', 'checkUserStatus', 'checkAppointment'])->group(function () {
