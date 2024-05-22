@@ -10,6 +10,7 @@ use App\Http\Controllers\UserController;
 |--------------------------------------------------------------------------
 | Web Routes
 |--------------------------------------------------------------------------
+| !! IMPORTANT !!
 | checkUserStatus is must be next to the auth. It checks if the user status is active/inactive and expiry date
 |
 */
@@ -48,13 +49,13 @@ Route::middleware(['auth', 'checkUserStatus', 'canAccessAdminOrRoot'])->group(fu
     // create user
     Route::get('/users/new', [UserController::class, 'create'])
         ->name('user.create');
-    Route::post('/users', [UserController::class, 'store'])
+    Route::post('/users/new', [UserController::class, 'store'])
     ->name('user.store');
 
     // edit user
     Route::get('/users/{user}/edit', [UserController::class, 'edit'])
         ->name('user.edit');
-    Route::put('/users/{user}', [UserController::class, 'update'])
+    Route::put('/users/{user}/edit', [UserController::class, 'update'])
         ->name('user.update');
 
     // delete user

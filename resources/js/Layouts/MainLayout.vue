@@ -5,6 +5,7 @@ import { useFlashMessages } from "@/Services/useFlashMessages.js";
 import {useContact} from "@/Composables/useContact.vue";
 import {useWhatsapp} from "@/Composables/useWhatsapp.vue";
 import {useMailto} from "@/Composables/useMailto.vue";
+
 meHavePosts();
 useFlashMessages(); // Initialize flash messages functionality
 
@@ -13,6 +14,8 @@ const { sendWith } = useWhatsapp();
 const { mailto } = useMailto();
 const drawer = ref(null);
 const openUserList = ref(null);
+
+
 </script>
 
 <template>
@@ -22,19 +25,21 @@ const openUserList = ref(null);
             v-model="drawer"
         >
             <v-list-item
-                prepend-avatar="https://randomuser.me/api/portraits/men/78.jpg"
-                title="John Leider"
+                :prepend-avatar="$page.props.auth.user.gravatar"
+                :title="$page.props.auth.user.name"
             ></v-list-item>
 
             <v-divider></v-divider>
 
             <v-list v-model:opened="openUserList" density="compact" nav>
-                <v-list-item prepend-icon="mdi-view-dashboard" title="Home" value="home" @click="$inertia.get(route('home'))" :active="route().current('home')"></v-list-item>
-                <v-list-item prepend-icon="mdi-forum" title="About" value="about"></v-list-item>
+                <v-list-item prepend-icon="mdi-view-dashboard" title="Home" value="home" @click="$inertia.get(route('home'))" :active="route().current('home')" />
+                <v-list-item prepend-icon="mdi-account-plus" title="New User" value="new user" @click="$inertia.get(route('user.create'))" :active="route().current('user.create')" />
+                <v-list-item prepend-icon="mdi-logout" title="Logout" value="Logout" @click="$inertia.post(route('logout'))" />
+
 
                 <v-list-subheader>Users</v-list-subheader>
                 <v-list-item v-for="item in $page.props.team.users" :key="item.id"
-                             @click="$inertia.get(`${route('users.index')}/${item.id}`)"
+                             @click="$inertia.get(route('user.show', { user: item }))"
                              :prepend-avatar="item.gravatar"
                              :title="item.name"
                              :subtitle="item.email"

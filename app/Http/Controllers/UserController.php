@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Module;
-use App\Models\Tenant;
 use App\Traits\ModuleAssigner;
 use App\Models\User;
 use App\Rules\ModulesBelongToTenant;
@@ -18,6 +16,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules;
 use Illuminate\Support\Facades\DB;
+use App\Http\Requests\UserRequest;
+
 class UserController extends Controller
 {
     use ModuleAssigner; // assign all tenant modules to the user if the updated-created user role is admin or root
@@ -44,10 +44,10 @@ class UserController extends Controller
      *
      * Note: you may use a policy to add one more security layer to prevent showing other tenant's user here
      */
-    public function show(): Response
+    public function show(User $user): Response
     {
         return Inertia::render('Panel/Users/Show', [
-            'user' => User::with('modules')->get()
+            'user' => $user->load('modules'), // Eager load the 'modules' relationship
         ]);
     }
 
@@ -61,9 +61,9 @@ class UserController extends Controller
     public function create(): Response
     {
         return Inertia::render('Panel/Users/Create', [
-            'modules' => Auth::user()->tenant->modules,
-            'limit' => $this->maxUsersAllowed,
-            'existingUsers' => User::all()->count()
+            'initialModules' => Auth::user()->tenant->modules,
+            'userLimitCount' => $this->maxUsersAllowed,
+            'currentUserCount' => User::all()->count()
         ]);
     }
 
@@ -76,37 +76,21 @@ class UserController extends Controller
      *
      * @throws ValidationException|AuthorizationException
      */
-    public function store(Request $request): RedirectResponse
+    public function store(UserRequest $request): RedirectResponse
     {
+        $validatedData = $request->validated();
+
         if (User::all()->count() >= $this->maxUsersAllowed) {
             // Redirect back with an error message if the maximum limit is reached
             return redirect()->back()->with('error', 'You can not create more than 10 users.');
         }
-
-        // Set all available modules in this organization if the new user role is admin. Not crucially necessary but a good practice.
-        $request = $this->setModules($request, Auth::user());
-
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:'.User::class,
-            'phone' => 'nullable|regex:/^\d{10,15}$/',
-            'password' => ['required', Rules\Password::defaults()],
-            'role' => 'required|string|in:admin,additional',
-            'modules' => ['required', 'array', 'min:1', new ModulesBelongToTenant()],
-            'modules.*' => 'exists:modules,id'
-        ]);
-
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'status' => 'active',
-            'password' => Hash::make($request->password),
-            'role' => $request->role,
-        ]);
+        if (isset($validatedData['end_date_of_work'])) {
+            $validatedData['status'] = 'inactive';
+        }
+        $user = User::create($validatedData);
 
         // Relate the user with selected modules
-        $user->modules()->attach($request->modules);
+        $user->modules()->attach($validatedData['modules']);
 
         return redirect()->back()->with('success', 'User has been registered successfully. They can now log in.');
     }
@@ -126,7 +110,7 @@ class UserController extends Controller
     {
         $this->authorize('edit', $user);
 
-        return Inertia::render('Panel/Users/Show', [
+        return Inertia::render('Panel/Users/Edit', [
             'user' => $user->load('modules'), // Eager load the 'modules' relationship
             'modules' => $user->tenant->modules,
         ]);
@@ -143,47 +127,26 @@ class UserController extends Controller
      *
      * @throws AuthorizationException
      */
-    public function update(Request $request, User $user)
+    public function update(UserRequest $request, User $user)
     {
         $this->authorize('update', $user);
-
-        // Set all available modules in this organization if the new user role is admin. Not crucially necessary but a good practice.
-        $request = $this->setModules($request, $user);
-
-        $validatedData = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => [
-                'required',
-                'string',
-                'email',
-                'max:255',
-                Rule::unique('users')->ignore($user->id),
-            ],
-            'phone' => 'nullable|regex:/^\d{10,15}$/',
-            'role' => [
-                'required',
-                Rule::in(['additional', 'admin']),
-            ],
-            'status' => [
-                'required',
-                Rule::in(['active', 'inactive']),
-            ],
-            'password' => ['nullable', 'string', 'min:8'],
-            'modules' => ['required', 'array', 'min:1', new ModulesBelongToTenant()],
-            'modules.*' => ['required', 'exists:modules,id'],
-        ]);
+        $validatedData = $request->validated();
 
         // Check if password is included and is not empty
         if (!empty($validatedData['password'])) {
             $validatedData['password'] = Hash::make($validatedData['password']);
         } else {
+            // If password is not included, remove it from the $validatedData array
             unset($validatedData['password']);
         }
-
+        if (isset($validatedData['end_date_of_work'])) {
+            $validatedData['status'] = 'inactive';
+        }
         // Start transaction
         DB::beginTransaction();
 
         try {
+
             $user->update($validatedData);
             $user->modules()->sync($validatedData['modules']);
 
