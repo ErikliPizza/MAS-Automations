@@ -46,7 +46,7 @@ class UserRequest extends FormRequest
             'start_date_of_work' => 'nullable|date',
             'end_date_of_work' => 'nullable|date|after_or_equal:start_date_of_work',
             'reason_of_leaving' => 'nullable|string|max:500',
-            'salary' => 'nullable|numeric|between:0,9999999.99',
+            'salary' => 'nullable|numeric|between:0,99999999',
 
             'modules' => ['required', 'array', 'min:1', new ModulesBelongToTenant()],
             'modules.*' => ['required', 'exists:modules,id'],

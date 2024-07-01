@@ -4,7 +4,11 @@ import { Head } from '@inertiajs/vue3';
 </script>
 
 <template>
-    <v-otp-input variant="solo-filled"></v-otp-input>
+    <v-card-text align-center>
+            <v-icon>mdi-account-circle</v-icon>
+
+            Your Text Here
+    </v-card-text>
 </template>
 
 <style>

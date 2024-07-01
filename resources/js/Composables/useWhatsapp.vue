@@ -1,6 +1,7 @@
 <script>
 // Define a function to handle WhatsApp interactions
 export function useWhatsapp() {
+
     // Function to share a value via WhatsApp
     const shareWith = (value) => {
         let whatsappUrl;

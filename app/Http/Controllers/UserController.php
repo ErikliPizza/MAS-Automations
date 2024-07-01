@@ -86,6 +86,8 @@ class UserController extends Controller
         }
         if (isset($validatedData['end_date_of_work'])) {
             $validatedData['status'] = 'inactive';
+        } else {
+            $validatedData['reason_of_leaving'] = null;
         }
         $user = User::create($validatedData);
 
@@ -141,6 +143,8 @@ class UserController extends Controller
         }
         if (isset($validatedData['end_date_of_work'])) {
             $validatedData['status'] = 'inactive';
+        } else {
+            $validatedData['reason_of_leaving'] = null;
         }
         // Start transaction
         DB::beginTransaction();

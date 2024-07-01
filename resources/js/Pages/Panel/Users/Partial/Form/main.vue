@@ -9,7 +9,9 @@ import {useSyncFormValues} from "@/Services/useSyncFormValues.js";
 import {useSyncFormErrors} from "@/Services/useSyncFormErrors.js";
 import {userValidation} from "@/Services/userValidation.js";
 import DatePickerInDialog from "@/Pages/Panel/Users/Partial/Elements/date-picker-in-dialog.vue";
+import { useDisplay } from 'vuetify'
 
+const { mobile } = useDisplay()
 
 const props = defineProps({
     modelValue: { required: true },
@@ -23,12 +25,12 @@ const roleItems = ref(['additional', 'admin']);
 const steps = [
     {
         name: 'stepOne',
-        title: 'Primary',
+        title: 'Required',
         fields: ['name', 'surname', 'email', 'password']
     },
     {
         name: 'stepTwo',
-        title: 'Roles',
+        title: 'Required',
         fields: ['modules', 'role']
     },
     {
@@ -89,8 +91,8 @@ const stepperDisabled = computed(() => {
 </script>
 
 <template>
-    <v-container>
-        <v-stepper alt-labels editable show-actions v-model="stepperController">
+    <v-container class="pa-2">
+        <v-stepper editable show-actions :mobile="mobile" v-model="stepperController" >
             <stepper-header :steps="steps" :stepErrors="stepErrors" />
 
             <v-stepper-window>
@@ -145,6 +147,14 @@ const stepperDisabled = computed(() => {
                                 density="compact"
                             ></v-text-field>
                         </column>
+                        <v-col
+                            cols="12"
+                            sm="12"
+                        >
+                            <v-btn block append-icon="mdi-account-child" @click="submit">
+                                Create User
+                            </v-btn>
+                        </v-col>
                     </v-row>
                 </window-item>
 
@@ -175,6 +185,14 @@ const stepperDisabled = computed(() => {
                                 density="compact"
                             ></v-select>
                         </column>
+                        <v-col
+                            cols="12"
+                            sm="12"
+                        >
+                            <v-btn block append-icon="mdi-account-child" @click="submit">
+                                Create User
+                            </v-btn>
+                        </v-col>
                     </v-row>
                 </window-item>
 
@@ -276,15 +294,18 @@ const stepperDisabled = computed(() => {
                                 :error-messages="getErrorMessage('end_date_of_work')"
                                 v-model="fields.end_date_of_work.value.value" label="End Date of Work"/>
                         </column>
+
+                        <v-col
+                            cols="12"
+                            sm="12"
+                        >
+                            <v-btn block append-icon="mdi-account-child" @click="submit">
+                                Create User
+                            </v-btn>
+                        </v-col>
                     </v-row>
                 </window-item>
             </v-stepper-window>
-
-            <v-row class="ma-12" align="center" justify="center">
-                <v-btn append-icon="mdi-account-child" @click="submit" block>
-                    Create User
-                </v-btn>
-            </v-row>
 
             <v-stepper-actions
                 :disabled="stepperDisabled"
@@ -292,8 +313,12 @@ const stepperDisabled = computed(() => {
                 @click:prev="stepperController--"
             ></v-stepper-actions>
 
-
-
         </v-stepper>
     </v-container>
+
 </template>
+
+<style>
+
+
+</style>

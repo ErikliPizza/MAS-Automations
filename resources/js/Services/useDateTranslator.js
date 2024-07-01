@@ -1,4 +1,9 @@
+import {useDate} from "vuetify";
+
+
 const useDateTranslator = () => {
+    const adapter = useDate()
+
     const toYMD = (dateString) => {
         const date = new Date(dateString);
         const year = date.getFullYear();
@@ -7,7 +12,11 @@ const useDateTranslator = () => {
         return `${year}-${month}-${day}`;
     };
 
-    return { toYMD };
+    const toHumanReadable = (dateString, formatString) => {
+        return adapter.format(new Date(dateString), formatString);
+    }
+
+    return { toYMD, toHumanReadable };
 };
 
 export default useDateTranslator;

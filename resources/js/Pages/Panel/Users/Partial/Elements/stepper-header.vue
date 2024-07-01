@@ -16,10 +16,15 @@ const props = defineProps({
 <template>
     <v-stepper-header>
         <template v-for="(step, index) in steps" :key="index">
-            <v-stepper-item :rules="[() => !stepErrors[step.name]]" :value="index">
+            <v-stepper-item :rules="[() => !stepErrors[step.name]]" :value="index" >
                 <template v-slot:title> {{ step.title }}</template>
             </v-stepper-item>
             <v-divider v-if="index < steps.length - 1"></v-divider>
         </template>
     </v-stepper-header>
 </template>
+
+<style>
+
+
+</style>

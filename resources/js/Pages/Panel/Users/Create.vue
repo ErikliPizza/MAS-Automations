@@ -3,7 +3,7 @@ import { useForm } from '@inertiajs/vue3';
 import Main from "@/Pages/Panel/Users/Partial/Form/main.vue";
 import useDateTranslator from "@/Services/useDateTranslator.js";
 
-const { toYMD } = useDateTranslator()
+const { toYMD } = useDateTranslator();
 
 const props = defineProps({
     initialModules: { required: true },
@@ -32,9 +32,9 @@ const form = useForm({
 });
 
 const submit = () => {
-    form.birthday = toYMD(form.birthday);
-    form.start_date_of_work = toYMD(form.start_date_of_work);
-    form.end_date_of_work = toYMD(form.end_date_of_work);
+    form.birthday && (form.birthday = toYMD(form.birthday));
+    form.start_date_of_work && (form.start_date_of_work = toYMD(form.start_date_of_work));
+    form.end_date_of_work && (form.end_date_of_work = toYMD(form.end_date_of_work));
 
     form.post(route('user.store'), {
         onSuccess: () => form.reset(),

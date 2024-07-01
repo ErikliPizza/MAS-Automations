@@ -1,10 +1,12 @@
 <script setup>
-import { ref } from 'vue';
+import {ref, watch} from 'vue';
 import {meHavePosts} from "@/Services/postScrollCleaner.js";
 import { useFlashMessages } from "@/Services/useFlashMessages.js";
 import {useContact} from "@/Composables/useContact.vue";
 import {useWhatsapp} from "@/Composables/useWhatsapp.vue";
 import {useMailto} from "@/Composables/useMailto.vue";
+import {useDisplay} from "vuetify";
+import { router, usePage } from '@inertiajs/vue3'
 
 meHavePosts();
 useFlashMessages(); // Initialize flash messages functionality
@@ -12,9 +14,18 @@ useFlashMessages(); // Initialize flash messages functionality
 const { callNumber, addContact } = useContact();
 const { sendWith } = useWhatsapp();
 const { mailto } = useMailto();
-const drawer = ref(null);
+const left = ref(null);
+const right = ref(null);
 const openUserList = ref(null);
+const { mobile } = useDisplay();
+const page = usePage();
 
+router.on('start', (event) => {
+    if (mobile.value === true) {
+        left.value = null;
+        right.value = null;
+    }
+})
 
 </script>
 
@@ -22,7 +33,7 @@ const openUserList = ref(null);
     <v-layout class="rounded rounded-md">
         <v-navigation-drawer
             location="left"
-            v-model="drawer"
+            v-model="left"
         >
             <v-list-item
                 :prepend-avatar="$page.props.auth.user.gravatar"
@@ -32,14 +43,15 @@ const openUserList = ref(null);
             <v-divider></v-divider>
 
             <v-list v-model:opened="openUserList" density="compact" nav>
-                <v-list-item prepend-icon="mdi-view-dashboard" title="Home" value="home" @click="$inertia.get(route('home'))" :active="route().current('home')" />
-                <v-list-item prepend-icon="mdi-account-plus" title="New User" value="new user" @click="$inertia.get(route('user.create'))" :active="route().current('user.create')" />
+                <v-list-item prepend-icon="mdi-view-dashboard" title="Home" value="home" @click="$inertia.get(route('home'))" :active="route().current('home')" :disabled="route().current('home')"/>
+                <v-list-item prepend-icon="mdi-account-plus" title="New User" value="new user" @click="$inertia.get(route('user.create'))" :active="route().current('user.create')" :disabled="route().current('user.create')"/>
                 <v-list-item prepend-icon="mdi-logout" title="Logout" value="Logout" @click="$inertia.post(route('logout'))" />
 
 
                 <v-list-subheader>Users</v-list-subheader>
                 <v-list-item v-for="item in $page.props.team.users" :key="item.id"
                              @click="$inertia.get(route('user.show', { user: item }))"
+                             :active="route().current('user.show', { user: item })"
                              :prepend-avatar="item.gravatar"
                              :title="item.name"
                              :subtitle="item.email"
@@ -67,27 +79,35 @@ const openUserList = ref(null);
             </v-list>
         </v-navigation-drawer>
 
-        <v-app-bar :elevation="2">
+        <v-app-bar :elevation="2" v-if="!mobile">
             <template v-slot:prepend>
                 <v-app-bar-nav-icon
-                    @click.stop="drawer = !drawer"
+                    @click.stop="left = !left"
                 ></v-app-bar-nav-icon>
             </template>
             <v-app-bar-title>Application Bar</v-app-bar-title>
         </v-app-bar>
 
-        <v-navigation-drawer location="right">
+        <v-navigation-drawer
+            location="right"
+            v-model="right"
+        >
             <v-list>
                 <v-list-item title="Drawer right"></v-list-item>
             </v-list>
         </v-navigation-drawer>
 
-        <v-main class="d-flex align-center justify-center" style="min-height: 300px;">
-            <slot />
+        <v-main style="min-height: 300px;" v-show="((!left && !right) || !mobile)">
+            <transition name="fade" mode="out-in">
+                <slot />
+            </transition>
         </v-main>
 
         <v-bottom-navigation grow class="hidden-md-and-up">
-            <v-btn value="recent">
+            <v-btn
+                value="recent"
+                   @click.stop="left = !left"
+            >
                 <v-icon>mdi-history</v-icon>
 
                 <span>Recent</span>

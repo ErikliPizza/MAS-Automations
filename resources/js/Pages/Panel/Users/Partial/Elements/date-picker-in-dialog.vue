@@ -43,19 +43,38 @@ const confirm = () => {
         density="compact"
         readonly
     >
-        <v-dialog v-model="modal" activator="parent" width="auto">
+        <v-dialog v-model="modal" activator="parent" width="auto" transition="dialog-bottom-transition">
             <v-card>
-                <v-date-picker
-                    width="400"
-                    :title="label"
-                    :model-value="props.modelValue"
-                    @update:model-value="updateValue"
-                    color="primary"
-                ></v-date-picker>
+                <v-card-text class="pa-0">
+                    <v-row justify="center">
+                        <v-date-picker
+                            width="340"
+                            :title="label"
+                            :model-value="props.modelValue"
+                            @update:model-value="updateValue"
+                            color="primary"
+                        ></v-date-picker>
+                    </v-row>
+                </v-card-text>
+
+                <v-divider></v-divider>
+
                 <v-card-actions>
                     <v-spacer></v-spacer>
-                    <v-btn color="primary" @click="cancel">CLEAR</v-btn>
-                    <v-btn color="primary" @click="confirm" :disabled="!props.modelValue">OK</v-btn>
+
+                    <v-btn
+                        text="Clear"
+                        variant="plain"
+                        @click="cancel"
+                    ></v-btn>
+
+                    <v-btn
+                        color="primary"
+                        text="Save"
+                        variant="tonal"
+                        :disabled="!props.modelValue"
+                        @click="confirm"
+                    ></v-btn>
                 </v-card-actions>
             </v-card>
         </v-dialog>

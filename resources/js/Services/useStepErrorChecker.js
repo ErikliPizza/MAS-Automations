@@ -11,6 +11,7 @@ export function useStepErrorChecker(fields, form, steps) {
             });
         });
     }
+
     // Watcher for field errors
     const fieldErrorMessages = computed(() => {
         return Object.keys(fields).reduce((acc, key) => {

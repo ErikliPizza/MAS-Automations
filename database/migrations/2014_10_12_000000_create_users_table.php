@@ -31,7 +31,7 @@ return new class extends Migration
             $table->date('start_date_of_work')->nullable();
             $table->date('end_date_of_work')->nullable();
             $table->text('reason_of_leaving')->nullable();
-            $table->decimal('salary', 8, 2)->nullable();
+            $table->bigInteger('salary')->nullable();
 
             $table->timestamp('email_verified_at')->default(now());
             $table->rememberToken();
