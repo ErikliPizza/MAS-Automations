@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $faker = fake();
         // 1. Seed Modules
         $modules = [
             ['name' => 'Appointment', 'description' => 'This is module a.', 'endpoint' => 'a', 'icon' => '<svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="m 6.5 0 c -3.578125 0 -6.5 2.921875 -6.5 6.5 s 2.921875 6.5 6.5 6.5 c 0.167969 0 0.335938 -0.007812 0.5 -0.019531 v -2.007813 c -0.164062 0.019532 -0.332031 0.027344 -0.5 0.027344 c -2.496094 0 -4.5 -2.003906 -4.5 -4.5 s 2.003906 -4.5 4.5 -4.5 s 4.5 2.003906 4.5 4.5 c 0 0.167969 -0.007812 0.335938 -0.027344 0.5 h 2.007813 c 0.011719 -0.164062 0.019531 -0.332031 0.019531 -0.5 c 0 -3.578125 -2.921875 -6.5 -6.5 -6.5 z m 0 3 c -0.277344 0 -0.5 0.222656 -0.5 0.5 v 2.5 h -1.5 c -0.277344 0 -0.5 0.222656 -0.5 0.5 s 0.222656 0.5 0.5 0.5 h 2 c 0.277344 0 0.5 -0.222656 0.5 -0.5 v -3 c 0 -0.277344 -0.222656 -0.5 -0.5 -0.5 z m 4.5 5 v 3 h -3 v 2 h 3 v 3 h 2 v -3 h 3 v -2 h -3 v -3 z m 0 0" fill="#2e3436"></path> </g></svg>'],
@@ -42,22 +43,46 @@ class DatabaseSeeder extends Seeder
             $tenant->modules()->attach(Module::all());
             $root = User::create([
                 'tenant_id' => $tenant->id,
-                'name' => 'Root ' . $i,
-                'email' => 'root' . $i . '@mail.com',
-                'password' => Hash::make('password'),
+                'name' => $faker->firstName,
+                'surname' => $faker->lastName,
+                'email' => $faker->unique()->safeEmail,
+                'password' => bcrypt('password'), // or use $faker->password
+
                 'role' => 'root',
-                'phone' => fake()->phoneNumber, // Add phone number
-                'status' => 'active' // Add status
+                'status' => 'active',
+
+                'phone' => $faker->phoneNumber, // Add phone number
+                'title' => $faker->jobTitle,
+                'birthday' => $faker->dateTimeBetween('-70 years', '-18 years')->format('Y-m-d'),
+                'id_number' => $faker->numerify('###############'),
+                'bank_account' => $faker->iban(),
+
+                'start_date_of_work' => $faker->dateTimeBetween('-5 years', 'now')->format('Y-m-d'),
+                'end_date_of_work' => $faker->dateTimeBetween('now', '+5 years')->format('Y-m-d'),
+                'reason_of_leaving' => $faker->optional()->sentence,
+                'salary' => $faker->randomFloat(2, 1000, 10000),
             ]);
             // Create an admin user related to the tenant
             $admin = User::create([
                 'tenant_id' => $tenant->id,
-                'name' => 'Admin ' . $i,
-                'email' => 'admin' . $i . '@mail.com',
-                'password' => Hash::make('password'),
+                'name' => $faker->firstName,
+                'surname' => $faker->lastName,
+                'email' => $faker->unique()->safeEmail,
+                'password' => bcrypt('password'), // or use $faker->password
+
                 'role' => 'admin',
-                'phone' => fake()->phoneNumber, // Add phone number
-                'status' => 'active' // Add status
+                'status' => 'active',
+
+                'phone' => $faker->phoneNumber, // Add phone number
+                'title' => $faker->jobTitle,
+                'birthday' => $faker->dateTimeBetween('-70 years', '-18 years')->format('Y-m-d'),
+                'id_number' => $faker->numerify('###############'),
+                'bank_account' => $faker->iban(),
+
+                'start_date_of_work' => $faker->dateTimeBetween('-5 years', 'now')->format('Y-m-d'),
+                'end_date_of_work' => $faker->dateTimeBetween('now', '+5 years')->format('Y-m-d'),
+                'reason_of_leaving' => $faker->optional()->sentence,
+                'salary' => $faker->randomFloat(2, 1000, 10000),
             ]);
             $admin->modules()->attach(Module::all(), ['tenant_id' => $tenant->id]);
             $root->modules()->attach(Module::all(), ['tenant_id' => $tenant->id]);
@@ -110,12 +135,24 @@ class DatabaseSeeder extends Seeder
             for ($j = 1; $j <= 3; $j++) {
                 $user = User::create([
                     'tenant_id' => $tenant->id,
-                    'name' => 'User ' . $j . ' Tenant ' . $i,
-                    'email' => 'user' . $j . 'tenant' . $i . '@mail.com',
-                    'password' => Hash::make('password'),
+                    'name' => $faker->firstName,
+                    'surname' => $faker->lastName,
+                    'email' => $faker->unique()->safeEmail,
+                    'password' => bcrypt('password'), // or use $faker->password
+
                     'role' => 'additional',
-                    'phone' => fake()->phoneNumber, // Add phone number
-                    'status' => 'active' // Add status
+                    'status' => 'active',
+
+                    'phone' => $faker->phoneNumber, // Add phone number
+                    'title' => $faker->jobTitle,
+                    'birthday' => $faker->dateTimeBetween('-70 years', '-18 years')->format('Y-m-d'),
+                    'id_number' => $faker->numerify('###############'),
+                    'bank_account' => $faker->iban(),
+
+                    'start_date_of_work' => $faker->dateTimeBetween('-5 years', 'now')->format('Y-m-d'),
+                    'end_date_of_work' => $faker->dateTimeBetween('now', '+5 years')->format('Y-m-d'),
+                    'reason_of_leaving' => $faker->optional()->sentence,
+                    'salary' => $faker->randomFloat(2, 1000, 10000),
                 ]);
 
                 // Attach 3 random modules to the user

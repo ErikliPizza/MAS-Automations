@@ -49,24 +49,6 @@ class LoginRequest extends FormRequest
             ]);
         }
 
-        // Retrieve the authenticated user
-        $user = Auth::user();
-
-        // Check if the user's status is 'active'
-        if ($user->status != 'active' || $user->tenant->status != 'active') {
-            Auth::logout(); // Log the user out
-
-            throw ValidationException::withMessages([
-                'email' => 'your account is suspended, please contact with your provider' // You might need to add this translation
-            ]);
-        } else if ($user->tenant->expiry_time <= now()) {
-            Auth::logout(); // Log the user out
-
-            throw ValidationException::withMessages([
-                'email' => 'the related tenancy with your account is outdated, please renew your product', // Add this translation as well
-            ]);
-        }
-
         RateLimiter::clear($this->throttleKey());
     }
 

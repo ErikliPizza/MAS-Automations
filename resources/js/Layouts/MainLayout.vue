@@ -1,176 +1,131 @@
 <script setup>
-import {ref} from 'vue'
-import {
-    Dialog,
-    DialogPanel,
-    TransitionChild,
-    TransitionRoot
-} from '@headlessui/vue'
-import {
-    Bars3Icon,
-    HomeIcon,
-    MinusCircleIcon
-} from '@heroicons/vue/24/outline'
+import {ref, watch} from 'vue';
 import {meHavePosts} from "@/Services/postScrollCleaner.js";
-import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import { useFlashMessages } from "@/Services/useFlashMessages.js";
+import {useContact} from "@/Composables/useContact.vue";
+import {useWhatsapp} from "@/Composables/useWhatsapp.vue";
+import {useMailto} from "@/Composables/useMailto.vue";
+import {useDisplay} from "vuetify";
+import { router, usePage } from '@inertiajs/vue3'
 
-import SidebarMenu from "@/Components/Sidebar/SidebarMenu.vue";
-import SidebarMenuYourTeams from "@/Components/Sidebar/SidebarMenuYourTeams.vue";
-import SidebarMenuTeams from "@/Components/Sidebar/SidebarMenuTeams.vue";
 meHavePosts();
-
-const pages = [
-    { name: 'Projects', href: '#', current: false },
-    { name: 'Project Nero', href: '#', current: true },
-]
 useFlashMessages(); // Initialize flash messages functionality
 
-const sidebarOpen = ref(false)
-defineEmits(['closeSidebar']);
+const { callNumber, addContact } = useContact();
+const { sendWith } = useWhatsapp();
+const { mailto } = useMailto();
+const left = ref(null);
+const right = ref(null);
+const openUserList = ref(null);
+const { mobile } = useDisplay();
+const page = usePage();
+
+router.on('start', (event) => {
+    if (mobile.value === true) {
+        left.value = null;
+        right.value = null;
+    }
+})
+
 </script>
 
 <template>
-    <div>
-        <TransitionRoot as="template" :show="sidebarOpen">
-            <Dialog as="div" class="relative z-50 lg:hidden" @close="sidebarOpen = false">
-                <!-- Background overlay transition -->
-                <TransitionChild
-                    as="template"
-                    enter="transition-opacity ease-linear duration-300"
-                    enter-from="opacity-0"
-                    enter-to="opacity-100"
-                    leave="transition-opacity ease-linear duration-300"
-                    leave-from="opacity-100"
-                    leave-to="opacity-0"
+    <v-layout class="rounded rounded-md">
+        <v-navigation-drawer
+            location="left"
+            v-model="left"
+        >
+            <v-list-item
+                :prepend-avatar="$page.props.auth.user.gravatar"
+                :title="$page.props.auth.user.name"
+            ></v-list-item>
+
+            <v-divider></v-divider>
+
+            <v-list v-model:opened="openUserList" density="compact" nav>
+                <v-list-item prepend-icon="mdi-view-dashboard" title="Home" value="home" @click="$inertia.get(route('home'))" :active="route().current('home')" :disabled="route().current('home')"/>
+                <v-list-item prepend-icon="mdi-account-plus" title="New User" value="new user" @click="$inertia.get(route('user.create'))" :active="route().current('user.create')" :disabled="route().current('user.create')"/>
+                <v-list-item prepend-icon="mdi-logout" title="Logout" value="Logout" @click="$inertia.post(route('logout'))" />
+
+
+                <v-list-subheader>Users</v-list-subheader>
+                <v-list-item v-for="item in $page.props.team.users" :key="item.id"
+                             @click="$inertia.get(route('user.show', { user: item }))"
+                             :active="route().current('user.show', { user: item })"
+                             :prepend-avatar="item.gravatar"
+                             :title="item.name"
+                             :subtitle="item.email"
                 >
-                    <div class="fixed inset-0 bg-gray-900/80" />
-                </TransitionChild>
+                    <template v-slot:append>
+                        <v-speed-dial
+                            location="right center"
+                            transition="fade-transition"
+                        >
+                            <template v-slot:activator="{ props: activatorProps }">
+                                <v-btn
+                                    color="grey-lighten-1"
+                                    icon="mdi-dots-horizontal"
+                                    variant="text"
+                                    v-bind="activatorProps"
+                                ></v-btn>
+                            </template>
 
-                <div class="fixed inset-0 flex">
-                    <!-- Sidebar transition -->
-                    <TransitionChild
-                        as="template"
-                        enter="transition ease-in-out duration-300 transform"
-                        enter-from="-translate-x-full"
-                        enter-to="translate-x-0"
-                        leave="transition ease-in-out duration-300 transform"
-                        leave-from="translate-x-0"
-                        leave-to="-translate-x-full"
-                    >
-                        <DialogPanel class="relative mr-16 flex w-full max-w-xs flex-1">
+                            <v-btn key="1" icon="mdi-phone" color="grey-darken-3" @click="callNumber(item.phone)"/>
+                            <v-btn key="2" icon="mdi-whatsapp" :href="sendWith(item.phone)" color="green-lighten-1"/>
+                            <v-btn key="3" icon="mdi-email" color="blue-lighten-1" :href="mailto(item.email)"/>
+                        </v-speed-dial>
+                    </template>
+                </v-list-item>
+            </v-list>
+        </v-navigation-drawer>
 
-                            <!-- Sidebar content transition -->
-                            <TransitionChild
-                                as="template"
-                                enter="ease-in-out duration-300"
-                                enter-from="opacity-0"
-                                enter-to="opacity-100"
-                                leave="ease-in-out duration-300"
-                                leave-from="opacity-100"
-                                leave-to="opacity-0"
-                            >
-                                <div class="flex grow flex-col gap-y-5 overflow-y-auto bg-white px-6 pb-2 no-scrollbar">
-                                    <div class="flex h-16 shrink-0 items-center justify-between">
-                                        <ApplicationLogo class="h-8 w-auto"/>
-                                        <MinusCircleIcon class="h-6 w-6 text-black cursor-pointer" aria-hidden="true" @click="sidebarOpen = false"/>
-                                    </div>
-                                    <nav class="flex flex-1 flex-col">
-                                        <ul role="list" class="flex flex-1 flex-col gap-y-7">
-                                            <li>
-                                                <SidebarMenu @closeSidebar="sidebarOpen = false"/>
-                                            </li>
-                                            <li>
-                                                <SidebarMenuYourTeams @closeSidebar="sidebarOpen = false"/>
-                                                <SidebarMenuTeams @closeSidebar="sidebarOpen = false"/>
-                                            </li>
-                                        </ul>
-                                    </nav>
-                                </div>
-                            </TransitionChild>
-                        </DialogPanel>
-                    </TransitionChild>
-                </div>
-            </Dialog>
-        </TransitionRoot>
+        <v-app-bar :elevation="2" v-if="!mobile">
+            <template v-slot:prepend>
+                <v-app-bar-nav-icon
+                    @click.stop="left = !left"
+                ></v-app-bar-nav-icon>
+            </template>
+            <v-app-bar-title>Application Bar</v-app-bar-title>
+        </v-app-bar>
 
+        <v-navigation-drawer
+            location="right"
+            v-model="right"
+        >
+            <v-list>
+                <v-list-item title="Drawer right"></v-list-item>
+            </v-list>
+        </v-navigation-drawer>
 
-        <!-- Static sidebar for desktop -->
-        <div class="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col">
-            <!-- Sidebar component, swap this element with another sidebar if you like -->
-            <div class="flex grow flex-col gap-y-5 overflow-y-auto border-r border-gray-200 bg-white px-6 no-scrollbar">
-                <div class="flex h-16 shrink-0 items-center">
-                    <ApplicationLogo class="h-8 w-auto"/>
-                </div>
+        <v-main style="min-height: 300px;" v-show="((!left && !right) || !mobile)">
+            <transition name="fade" mode="out-in">
+                <slot />
+            </transition>
+        </v-main>
 
-                <nav class="flex flex-1 flex-col">
-                    <ul role="list" class="flex flex-1 flex-col gap-y-7">
-                        <li>
-                            <SidebarMenu @closeSidebar="sidebarOpen = false"/>
-                        </li>
-                        <li>
-                            <SidebarMenuYourTeams @closeSidebar="sidebarOpen = false"/>
-                            <SidebarMenuTeams @closeSidebar="sidebarOpen = false"/>
-                        </li>
+        <v-bottom-navigation grow class="hidden-md-and-up">
+            <v-btn
+                value="recent"
+                   @click.stop="left = !left"
+            >
+                <v-icon>mdi-history</v-icon>
 
-                        <li class="-mx-6 mt-auto">
-                            <a href="#" class="flex items-center gap-x-4 px-6 py-3 text-sm font-semibold leading-6 text-gray-900 hover:bg-gray-50">
-                                <img class="h-8 w-8 rounded-full bg-gray-50" :src="$page.props.auth.user.gravatar" />
-                                <span class="sr-only">Your profile</span>
-                                <span aria-hidden="true">{{ $page.props.auth.user.name }}</span>
-                            </a>
-                        </li>
-                    </ul>
-                </nav>
-            </div>
-        </div>
+                <span>Recent</span>
+            </v-btn>
 
-        <div class="top-0 z-40 flex items-center gap-x-6 bg-white px-4 py-4 shadow-sm sm:px-6 lg:hidden">
-            <button type="button" class="-m-2.5 p-2.5 text-gray-700 lg:hidden" @click="sidebarOpen = true">
-                <span class="sr-only">Open sidebar</span>
-                <Bars3Icon class="h-6 w-6" aria-hidden="true" />
-            </button>
-            <div class="flex-1 text-sm font-semibold leading-6 text-gray-900">Dashboard</div>
-            <a href="#">
-                <span class="sr-only">Your profile</span>
-                <img class="h-8 w-8 rounded-full bg-gray-50" :src="$page.props.auth.user.gravatar"/>
-            </a>
-        </div>
+            <v-btn value="favorites">
+                <v-icon>mdi-heart</v-icon>
 
-        <main class="lg:pl-72">
-            <div class="xl:pr-96">
-                <nav class="p-6 -mb-10" aria-label="Breadcrumb" v-show="false">
-                    <ol role="list" class="flex items-center space-x-4">
-                        <li>
-                            <div>
-                                <a href="#" class="text-gray-400 hover:text-gray-500">
-                                    <HomeIcon class="h-5 w-5 flex-shrink-0" aria-hidden="true" />
-                                    <span class="sr-only">Home</span>
-                                </a>
-                            </div>
-                        </li>
-                        <li v-for="page in pages" :key="page.name">
-                            <div class="flex items-center">
-                                <svg class="h-5 w-5 flex-shrink-0 text-gray-300" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                                    <path d="M5.555 17.776l8-16 .894.448-8 16-.894-.448z" />
-                                </svg>
-                                <a :href="page.href" class="ml-4 text-sm font-medium text-gray-500 hover:text-gray-700" :aria-current="page.current ? 'page' : undefined">{{ page.name }}</a>
-                            </div>
-                        </li>
-                    </ol>
-                </nav>
-                <div class="px-4 sm:px-6 lg:px-8">
-                    <transition name="fade" mode="out-in">
-                        <slot />
-                    </transition>
-                </div>
-            </div>
-        </main>
+                <span>Favorites</span>
+            </v-btn>
 
-        <aside class="fixed inset-y-0 right-0 hidden w-96 overflow-y-auto border-l border-gray-200 px-4 py-6 sm:px-6 lg:px-8 xl:block">
-            <span>hello</span>
-        </aside>
-    </div>
+            <v-btn value="nearby">
+                <v-icon>mdi-map-marker</v-icon>
+
+                <span>Nearby</span>
+            </v-btn>
+        </v-bottom-navigation>
+    </v-layout>
 </template>
 
 <style scoped>

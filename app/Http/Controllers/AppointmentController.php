@@ -37,68 +37,43 @@ class AppointmentController extends Controller
         $service = $this->getServiceFromRequest($request);
         $now = Carbon::now($this->timeZone);
 
-        // Refactor appointments retrieval to reuse service object
-        // Note: Consider consolidating or optimizing this part based on specific use case
-        // Assuming $now is already defined
         $appointmentsQuery = $service->appointments()
             ->select('start_time', 'end_time', 'name', 'email', 'phone', 'status', 'notes', 'id', 'price');
 
-        // Ongoing appointment
-        $ongoingAppointment = (clone $appointmentsQuery)
-            ->where('status', 'booked')
-            ->where('start_time', '<=', $now)
-            ->where('end_time', '>', $now)
-            ->first();
-        if ($ongoingAppointment) {
-            $ongoingAppointment->type = 'ongoing';
-        }
+        // Fetch appointments for the current day
+        $todayAppointments = $appointmentsQuery
+            ->whereDate('start_time', $now->toDateString()) // Filter appointments for the current day
+            ->orderBy('start_time', 'asc') // Optionally, you can order them by start time
+            ->get();
 
-        // Previous appointment
-        $previousAppointment = (clone $appointmentsQuery)
-            ->whereDate('start_time', '=', $now->toDateString())
-            ->whereIn('status', ['completed', 'missed', 'cancelled']) // Include both completed and missed statuses
-            ->where('start_time', '<', $now)
-            ->latest('end_time')
-            ->get()
-            ->each(function ($appointment) {
-                $appointment->type = 'previous';
+        $selectedAppointment = $todayAppointments->first(function ($appointment) use ($now) {
+            return $appointment['status'] === 'booked' &&
+                (Carbon::parse($appointment['start_time'], $this->timeZone) > $now ||
+                    (Carbon::parse($appointment['start_time'], $this->timeZone) <= $now &&
+                        Carbon::parse($appointment['end_time'], $this->timeZone) > $now));
+        });
+
+        // If appointment found, set the "type" field and mark it within the todayAppointments array
+        if ($selectedAppointment) {
+            $selectedAppointment['type'] =
+                Carbon::parse($selectedAppointment['start_time'], $this->timeZone) <= $now ? 'ongoing' : 'next';
+
+            // Mark the selected appointment within the todayAppointments array
+            $todayAppointments->transform(function ($appointment) use ($selectedAppointment) {
+                if ($appointment === $selectedAppointment) {
+                    $appointment['selected'] = true;
+                } else {
+                    $appointment['selected'] = false;
+                }
+                return $appointment;
             });
-
-        // Next appointment
-        $nextAppointment = (clone $appointmentsQuery)
-            ->where('status', 'booked')
-            ->whereDate('start_time', '=', $now->toDateString())
-            ->where('start_time', '>', $now)
-            ->orderBy('start_time', 'asc')
-            ->first();
-        if ($nextAppointment) {
-            $nextAppointment->type = 'next';
         }
-
-        // Future appointments
-        $futureAppointments = (clone $appointmentsQuery)
-            ->where('status', 'booked')
-            ->where('start_time', '>', $nextAppointment ? $nextAppointment->start_time : $now)
-            ->orderBy('start_time', 'asc')
-            ->get()
-            ->each(function ($appointment) {
-                $appointment->type = 'future';
-            });
-
-
-        // Combine all appointments into a single collection, filtering out null values for ongoing, previous, and next
-        $allAppointments = collect([$ongoingAppointment, $nextAppointment])
-            ->filter() // Filter out null values
-            ->merge($futureAppointments)
-            ->merge($previousAppointment); // Merge with future appointments
-
-        // Sort all appointments by start time and reassign
-        $allAppointments = $allAppointments->sortBy('start_time')->values();
 
         return Inertia::render('Appointment/Basic/Index', [
             'services' => $activeServices, // Assuming $activeServices is defined
             'service' => $service,
-            'appointments' => $allAppointments,
+            'appointments' => $todayAppointments,
+            'heroAppointment' => $selectedAppointment ?? null
         ]);
     }
 
@@ -173,7 +148,7 @@ class AppointmentController extends Controller
             'services' => Service::where('status', 'active')->get(),
             'service' => $service,
             'appointments' => $appointments,
-            'appointment' => $appointment
+            'appointment' => $appointment->load('service')
         ]);
     }
 
@@ -414,3 +389,62 @@ class AppointmentController extends Controller
     }
 
 }
+
+
+/*
+        // Assuming $now is already defined
+        $appointmentsQuery = $service->appointments()
+            ->select('start_time', 'end_time', 'name', 'email', 'phone', 'status', 'notes', 'id', 'price');
+
+        // Ongoing appointment
+        $ongoingAppointment = (clone $appointmentsQuery)
+            ->where('status', 'booked')
+            ->where('start_time', '<=', $now)
+            ->where('end_time', '>', $now)
+            ->first();
+        if ($ongoingAppointment) {
+            $ongoingAppointment->type = 'ongoing';
+        }
+
+        // Previous appointment
+        $previousAppointment = (clone $appointmentsQuery)
+            ->whereDate('start_time', '=', $now->toDateString())
+            ->whereIn('status', ['completed', 'missed', 'cancelled']) // Include both completed and missed statuses
+            ->where('start_time', '<', $now)
+            ->latest('end_time')
+            ->get()
+            ->each(function ($appointment) {
+                $appointment->type = 'previous';
+            });
+
+        // Next appointment
+        $nextAppointment = (clone $appointmentsQuery)
+            ->where('status', 'booked')
+            ->whereDate('start_time', '=', $now->toDateString())
+            ->where('start_time', '>', $now)
+            ->orderBy('start_time', 'asc')
+            ->first();
+        if ($nextAppointment) {
+            $nextAppointment->type = 'next';
+        }
+
+        // Future appointments
+        $futureAppointments = (clone $appointmentsQuery)
+            ->where('status', 'booked')
+            ->where('start_time', '>', $nextAppointment ? $nextAppointment->start_time : $now)
+            ->orderBy('start_time', 'asc')
+            ->get()
+            ->each(function ($appointment) {
+                $appointment->type = 'future';
+            });
+
+
+        // Combine all appointments into a single collection, filtering out null values for ongoing, previous, and next
+        $allAppointments = collect([$ongoingAppointment, $nextAppointment])
+            ->filter() // Filter out null values
+            ->merge($futureAppointments)
+            ->merge($previousAppointment); // Merge with future appointments
+
+        // Sort all appointments by start time and reassign
+        $allAppointments = $allAppointments->sortBy('start_time')->values();
+ * */
